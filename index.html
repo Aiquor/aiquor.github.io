@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aiquor — AI agents, MCP integrations, and custom tools for your team</title>
+  <meta name="description" content="Aiquor builds AI agents, MCP integrations, custom Slack apps, websites, and cybersecurity solutions for small and mid-sized teams.">
+
+  <!-- Fonts: Bricolage Grotesque (headings) + Figtree (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================================
+       1. DESIGN TOKENS — change these to retheme the whole site
+       ========================================================= */
+    :root {
+      --color-ink:        #14231F;   /* headings, primary text */
+      --color-pine:       #1E4F3F;   /* brand primary: links, icons, dark sections */
+      --color-pine-deep:  #163C30;   /* hover state for pine */
+      --color-marigold:   #E9A23B;   /* CTA accent — used sparingly */
+      --color-marigold-deep: #D48F2A;
+      --color-stone:      #F2F1EC;   /* page background */
+      --color-paper:      #FFFFFF;   /* cards, form fields */
+      --color-muted:      #5B655F;   /* secondary text */
+      --color-line:       #D9D6CC;   /* borders, dividers */
+      --color-error:      #B3261E;
+      --color-success:    #1F6B4E;
+
+      --font-heading: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+      --font-body:    "Figtree", "Helvetica Neue", Arial, sans-serif;
+
+      /* Type scale (mobile first; bumped up at md) */
+      --text-xs:   0.875rem;
+      --text-base: 1.0625rem;
+      --text-lg:   1.25rem;
+      --text-xl:   1.5rem;
+      --text-2xl:  2rem;
+      --text-3xl:  2.75rem;
+
+      --space-1: 0.5rem;
+      --space-2: 1rem;
+      --space-3: 1.5rem;
+      --space-4: 2.5rem;
+      --space-5: 4rem;
+      --space-6: 6rem;
+
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --nav-height: 72px;
+      --max-width: 1120px;
+    }
+
+    @media (min-width: 768px) {
+      :root {
+        --text-2xl: 2.5rem;
+        --text-3xl: 3.75rem;
+      }
+    }
+
+    /* =========================================================
+       2. BASE
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: var(--nav-height);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: 1.6;
+      color: var(--color-ink);
+      background: var(--color-stone);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-heading);
+      line-height: 1.1;
+      margin: 0;
+      letter-spacing: -0.01em;
+      text-wrap: balance;
+    }
+    h1 { font-size: var(--text-3xl); font-weight: 700; }
+    h2 { font-size: var(--text-2xl); font-weight: 600; }
+    h3 { font-size: var(--text-xl);  font-weight: 600; }
+    p  { margin: 0 0 var(--space-2); max-width: 62ch; }
+
+    a { color: var(--color-pine); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { color: var(--color-pine-deep); }
+
+    :focus-visible {
+      outline: 3px solid var(--color-marigold);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 var(--space-2);
+    }
+    @media (min-width: 640px)  { .container { padding: 0 var(--space-3); } }
+    @media (min-width: 1024px) { .container { padding: 0 var(--space-4); } }
+
+    .section {
+      padding: var(--space-5) 0;
+      border-top: 1px solid var(--color-line);
+    }
+    @media (min-width: 768px) { .section { padding: var(--space-6) 0; } }
+
+    .section-intro { margin-bottom: var(--space-4); }
+    .section-intro p { color: var(--color-muted); font-size: var(--text-lg); margin-top: var(--space-2); }
+
+    .lead { font-size: var(--text-lg); color: var(--color-muted); }
+
+    /* Placeholder marker — remove class once real copy is in */
+    .placeholder { color: var(--color-muted); }
+    .placeholder::before { content: "[Placeholder] "; font-weight: 600; color: var(--color-error); }
+
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* =========================================================
+       3. BUTTONS
+       ========================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-1);
+      min-height: 48px;
+      padding: 0 1.5rem;
+      font: inherit;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid transparent;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+    .btn-primary { background: var(--color-marigold); color: var(--color-ink); }
+    .btn-primary:hover { background: var(--color-marigold-deep); color: var(--color-ink); }
+    .btn-secondary { background: transparent; color: var(--color-pine); border-color: var(--color-pine); }
+    .btn-secondary:hover { background: var(--color-pine); color: #fff; }
+    .btn-dark { background: var(--color-pine); color: #fff; }
+    .btn-dark:hover { background: var(--color-pine-deep); color: #fff; }
+    .btn[disabled] { opacity: 0.6; cursor: progress; }
+
+    /* =========================================================
+       4. NAVIGATION
+       ========================================================= */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: var(--nav-height);
+      background: rgba(242, 241, 236, 0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--color-line);
+    }
+    .nav .container {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+    }
+    .logo {
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.375rem;
+      color: var(--color-ink);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: var(--color-pine);
+      border-radius: 8px 8px 8px 2px;
+      position: relative;
+      flex: none;
+    }
+    .logo-mark::after {
+      content: ""; position: absolute; right: 6px; bottom: 6px;
+      width: 8px; height: 8px; background: var(--color-marigold); border-radius: 50%;
+    }
+
+    .nav-links {
+      display: none;
+      list-style: none;
+      margin: 0; padding: 0;
+      gap: var(--space-3);
+      align-items: center;
+    }
+    .nav-links a {
+      color: var(--color-ink);
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 0;
+      border-bottom: 2px solid transparent;
+      transition: border-color 160ms ease;
+    }
+    .nav-links a:hover { border-color: var(--color-marigold); color: var(--color-ink); }
+
+    .nav-toggle {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 44px; height: 44px;
+      background: none; border: 1.5px solid var(--color-line); border-radius: var(--radius-sm);
+      color: var(--color-ink); cursor: pointer;
+    }
+    .nav-toggle svg { width: 22px; height: 22px; }
+    .nav-toggle .icon-close { display: none; }
+    .nav-toggle[aria-expanded="true"] .icon-menu { display: none; }
+    .nav-toggle[aria-expanded="true"] .icon-close { display: block; }
+
+    .nav-mobile {
+      display: none;
+      position: absolute; top: var(--nav-height); left: 0; right: 0;
+      background: var(--color-stone);
+      border-bottom: 1px solid var(--color-line);
+      padding: var(--space-2) 0 var(--space-3);
+    }
+    .nav-mobile[data-open="true"] { display: block; }
+    .nav-mobile ul { list-style: none; margin: 0; padding: 0; }
+    .nav-mobile a {
+      display: block;
+      padding: 0.875rem var(--space-2);
+      font-size: var(--text-lg);
+      font-weight: 500;
+      color: var(--color-ink);
+      text-decoration: none;
+    }
+    .nav-mobile a:hover { background: rgba(30, 79, 63, 0.06); }
+    .nav-mobile .btn { margin: var(--space-2) var(--space-2) 0; width: calc(100% - 2rem); }
+
+    @media (min-width: 900px) {
+      .nav-links { display: flex; }
+      .nav-toggle, .nav-mobile { display: none !important; }
+    }
+
+    /* =========================================================
+       5. HERO
+       ========================================================= */
+    .hero { padding: var(--space-5) 0 var(--space-5); }
+    @media (min-width: 768px) { .hero { padding: var(--space-6) 0; } }
+
+    .hero-grid {
+      display: grid;
+      gap: var(--space-4);
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      .hero-grid { grid-template-columns: 1.15fr 0.85fr; gap: var(--space-5); }
+    }
+
+    .hero h1 { max-width: 16ch; }
+    .hero .lead { margin: var(--space-3) 0 var(--space-4); max-width: 46ch; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+    /* The "build sheet": a plain-language sample of what an engagement produces.
+       This is the hero's one distinctive element — keep everything else quiet. */
+    .build-sheet {
+      background: var(--color-paper);
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      font-size: var(--text-xs);
+      box-shadow: 0 1px 0 var(--color-line);
+    }
+    .build-sheet-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding-bottom: var(--space-2);
+      border-bottom: 1px dashed var(--color-line);
+      margin-bottom: var(--space-2);
+    }
+    .build-sheet-head strong { font-family: var(--font-heading); font-size: var(--text-base); }
+    .build-sheet-head span { color: var(--color-muted); }
+    .build-sheet ul { list-style: none; margin: 0; padding: 0; }
+    .build-sheet li {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--color-stone);
+    }
+    .build-sheet li:last-child { border-bottom: 0; }
+    .build-sheet li svg { width: 20px; height: 20px; color: var(--color-pine); margin-top: 1px; }
+    .build-sheet li em { font-style: normal; color: var(--color-muted); white-space: nowrap; }
+    .build-sheet-foot {
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px dashed var(--color-line);
+      display: flex; justify-content: space-between;
+      color: var(--color-muted);
+    }
+    .build-sheet-foot strong { color: var(--color-ink); }
+
+    /* =========================================================
+       6. SERVICES — a bordered list, not a card grid
+       ========================================================= */
+    .service-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-line); }
+    .service {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: var(--space-2);
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--color-line);
+    }
+    @media (min-width: 768px) {
+      .service { grid-template-columns: 48px 1.1fr 1fr; gap: var(--space-4); padding: var(--space-4) 0; }
+    }
+    .service-icon {
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      background: var(--color-pine);
+      color: #fff;
+      border-radius: 10px 10px 10px 3px;
+    }
+    .service-icon svg { width: 22px; height: 22px; }
+    .service h3 { margin-bottom: 0.5rem; }
+    .service-summary { color: var(--color-muted); margin-bottom: 0; }
+    .service-examples { grid-column: 2; }
+    @media (min-width: 768px) { .service-examples { grid-column: auto; } }
+    .service-examples p { margin: 0 0 0.5rem; font-weight: 600; font-size: var(--text-xs); color: var(--color-ink); }
+    .service-examples ul { margin: 0; padding-left: 1.1rem; color: var(--color-muted); }
+    .service-examples li { margin-bottom: 0.25rem; }
+
+    /* =========================================================
+       7. ABOUT
+       ========================================================= */
+    .about-grid { display: grid; gap: var(--space-4); }
+    @media (min-width: 900px) { .about-grid { grid-template-columns: 1fr 1fr; gap: var(--space-5); } }
+
+    .principles { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+    .principle {
+      background: var(--color-paper);
+      border-left: 4px solid var(--color-pine);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: var(--space-2) var(--space-3);
+    }
+    .principle h3 { font-size: var(--text-lg); margin-bottom: 0.35rem; }
+    .principle p { margin: 0; color: var(--color-muted); }
+
+    /* =========================================================
+       8. WORK / CASE STUDIES
+       ========================================================= */
+    .work-grid { display: grid; gap: var(--space-2); }
+    @media (min-width: 768px) { .work-grid { grid-template-columns: repeat(3, 1fr); gap: var(--space-3); } }
+
+    .case {
+      display: flex; flex-direction: column;
+      background: var(--color-paper);
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .case-visual {
+      height: 160px;
+      background:
+        linear-gradient(135deg, rgba(30,79,63,0.10) 0 30%, transparent 30%),
+        var(--color-stone);
+      border-bottom: 1px solid var(--color-line);
+      display: grid; place-items: center;
+      color: var(--color-muted);
+      font-size: var(--text-xs);
+    }
+    .case-body { padding: var(--space-3); display: flex; flex-direction: column; gap: 0.75rem; flex: 1; }
+    .case-tag {
+      align-self: flex-start;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--color-pine);
+      background: rgba(30,79,63,0.08);
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+    }
+    .case h3 { font-size: var(--text-lg); }
+    .case p { color: var(--color-muted); margin: 0; }
+    .case-result {
+      margin-top: auto;
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-line);
+      font-weight: 600;
+      color: var(--color-ink);
+    }
+
+    /* =========================================================
+       9. CONTACT
+       ========================================================= */
+    .contact { background: var(--color-pine); color: #fff; border-top: 0; }
+    .contact h2, .contact h3 { color: #fff; }
+    .contact .section-intro p { color: rgba(255,255,255,0.78); }
+    .contact a { color: #fff; }
+    .contact a:hover { color: var(--color-marigold); }
+
+    .contact-grid { display: grid; gap: var(--space-4); }
+    @media (min-width: 900px) { .contact-grid { grid-template-columns: 0.9fr 1.1fr; gap: var(--space-5); } }
+
+    .contact-aside p { color: rgba(255,255,255,0.78); }
+    .contact-aside .email { font-size: var(--text-lg); font-weight: 600; word-break: break-all; }
+    .contact-aside dl { margin: var(--space-3) 0 0; }
+    .contact-aside dt { font-weight: 600; }
+    .contact-aside dd { margin: 0 0 var(--space-2); color: rgba(255,255,255,0.78); }
+
+    .form {
+      background: var(--color-paper);
+      color: var(--color-ink);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      display: grid;
+      gap: var(--space-2);
+    }
+    @media (min-width: 640px) { .form { padding: var(--space-4); } }
+    .form-row { display: grid; gap: var(--space-2); }
+    @media (min-width: 640px) { .form-row { grid-template-columns: 1fr 1fr; } }
+
+    .field { display: grid; gap: 0.4rem; }
+    .field label { font-weight: 600; font-size: var(--text-xs); }
+    .field .hint { color: var(--color-muted); font-size: var(--text-xs); }
+    .field input, .field select, .field textarea {
+      font: inherit;
+      font-size: var(--text-base);
+      color: var(--color-ink);
+      background: #fff;
+      border: 1.5px solid var(--color-line);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 0.9rem;
+      min-height: 48px;
+      width: 100%;
+      transition: border-color 160ms ease;
+    }
+    .field textarea { min-height: 140px; resize: vertical; }
+    .field input:hover, .field select:hover, .field textarea:hover { border-color: var(--color-muted); }
+    .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible {
+      outline: none; border-color: var(--color-pine); box-shadow: 0 0 0 3px rgba(30,79,63,0.18);
+    }
+    .field[data-invalid="true"] input, .field[data-invalid="true"] textarea { border-color: var(--color-error); }
+    .field-error { color: var(--color-error); font-size: var(--text-xs); min-height: 1.2em; margin: 0; }
+
+    .form-status {
+      padding: 0.9rem 1rem;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      display: none;
+    }
+    .form-status[data-state="success"] { display: block; background: rgba(31,107,78,0.10); color: var(--color-success); }
+    .form-status[data-state="error"]   { display: block; background: rgba(179,38,30,0.08); color: var(--color-error); }
+
+    .form-footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+    .form-footer small { color: var(--color-muted); }
+
+    /* =========================================================
+       10. FOOTER
+       ========================================================= */
+    .footer { padding: var(--space-4) 0; color: var(--color-muted); font-size: var(--text-xs); }
+    .footer .container { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2); }
+    .footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .footer a { color: var(--color-muted); }
+    .footer a:hover { color: var(--color-ink); }
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= NAV ================= -->
+  <header class="nav">
+    <div class="container">
+      <a href="#top" class="logo" aria-label="Aiquor home">
+        <span class="logo-mark" aria-hidden="true"></span>
+        Aiquor
+      </a>
+
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="#services">Services</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#work">Work</a></li>
+          <li><a href="#contact" class="btn btn-dark" style="min-height:44px;">Book a call</a></li>
+        </ul>
+      </nav>
+
+      <button class="nav-toggle" aria-expanded="false" aria-controls="nav-mobile" aria-label="Open menu">
+        <svg class="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="nav-mobile" id="nav-mobile" data-open="false">
+      <ul>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#work">Work</a></li>
+      </ul>
+      <a href="#contact" class="btn btn-dark">Book a call</a>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ================= HERO ================= -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <h1>We build AI agents, MCP integrations, and custom tools that make your team more efficient and safer.</h1>
+          <p class="lead">
+            Aiquor is a small engineering team for businesses that don't have one. We design and ship the automation, integrations, and security you'd build yourself if you had the people, and we hand it over in a shape you can actually maintain.
+          </p>
+          <div class="hero-actions">
+            <a href="#contact" class="btn btn-primary">Book a call</a>
+            <a href="#services" class="btn btn-secondary">See what we build</a>
+          </div>
+        </div>
+
+        <!-- Sample "build sheet" — swap the rows for real examples once you have them -->
+        <aside class="build-sheet" aria-label="Example of a typical engagement">
+          <div class="build-sheet-head">
+            <strong>A typical first project</strong>
+            <span>4–6 weeks</span>
+          </div>
+          <ul>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+              <span>Map the work your team repeats every week</span>
+              <em>Week 1</em>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/></svg>
+              <span>Review access, secrets, and where data lives</span>
+              <em>Week 1</em>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/><path d="M8 12h8"/></svg>
+              <span>Build one agent or integration end to end</span>
+              <em>Weeks 2–4</em>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              <span>Roll out to the team with docs and a handover</span>
+              <em>Weeks 5–6</em>
+            </li>
+          </ul>
+          <div class="build-sheet-foot">
+            <span>What you get</span>
+            <strong>Working software you own</strong>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= SERVICES ================= -->
+    <section class="section" id="services">
+      <div class="container">
+        <div class="section-intro">
+          <h2>What we build</h2>
+          <p>Five things, done properly. Most projects combine two or three.</p>
+        </div>
+
+        <ul class="service-list">
+
+          <li class="service">
+            <div class="service-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>
+            </div>
+            <div>
+              <h3>AI agents &amp; automation</h3>
+              <p class="service-summary">Agents that handle the repetitive parts of your operations: triage, drafting, data entry, follow-ups. Scoped tightly, tested against your real data, with a human in the loop where it matters.</p>
+            </div>
+            <div class="service-examples">
+              <p>Good fit for</p>
+              <ul>
+                <li>Support and inbox triage</li>
+                <li>Report and document generation</li>
+                <li>Data cleanup and enrichment</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="service">
+            <div class="service-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="13" width="7" height="7" rx="1.5"/><path d="M10 7.5h4a3 3 0 0 1 3 3V13M14 16.5h-4a3 3 0 0 1-3-3V11"/></svg>
+            </div>
+            <div>
+              <h3>MCP integrations</h3>
+              <p class="service-summary">Model Context Protocol servers that connect AI assistants like Claude to your own systems: your database, CRM, docs, or internal APIs. Permissioned, logged, and safe to put in front of the whole team.</p>
+            </div>
+            <div class="service-examples">
+              <p>Good fit for</p>
+              <ul>
+                <li>Letting your team ask questions of internal data</li>
+                <li>Exposing a legacy system to AI tools</li>
+                <li>Custom tools for Claude, Cursor, or your own agents</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="service">
+            <div class="service-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4V5z"/><path d="M8 8h8M8 12h5"/></svg>
+            </div>
+            <div>
+              <h3>Custom Slack apps</h3>
+              <p class="service-summary">Bots and workflows that live where your team already works. Approvals, alerts, standups, on-call handoffs, or a front end for one of the agents above.</p>
+            </div>
+            <div class="service-examples">
+              <p>Good fit for</p>
+              <ul>
+                <li>Approval and request workflows</li>
+                <li>Alerts from your systems, with context</li>
+                <li>Asking an AI agent questions in a channel</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="service">
+            <div class="service-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5"/></svg>
+            </div>
+            <div>
+              <h3>Web development</h3>
+              <p class="service-summary">Fast, accessible websites and internal web apps built on modern tooling, with no bloated page builders. We handle hosting, forms, analytics, and the parts people forget.</p>
+            </div>
+            <div class="service-examples">
+              <p>Good fit for</p>
+              <ul>
+                <li>Marketing sites that need to load fast</li>
+                <li>Client portals and internal dashboards</li>
+                <li>Replacing a site nobody can update anymore</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="service">
+            <div class="service-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            <div>
+              <h3>Cybersecurity</h3>
+              <p class="service-summary">Practical security for teams without a security department. We find what's exposed, fix what matters first, and set up the basics so it stays that way, including for the AI tools you're adopting.</p>
+            </div>
+            <div class="service-examples">
+              <p>Good fit for</p>
+              <ul>
+                <li>Security reviews of apps, cloud accounts, and AI integrations</li>
+                <li>Access control, secrets, and MFA rollouts</li>
+                <li>Hardening before a compliance or customer audit</li>
+              </ul>
+            </div>
+          </li>
+
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= ABOUT ================= -->
+    <section class="section" id="about">
+      <div class="container about-grid">
+        <div>
+          <div class="section-intro">
+            <h2>Who we are</h2>
+          </div>
+          <p class="placeholder">Two or three sentences on the founders: names, backgrounds, and why you started Aiquor. Keep it human; this is the part people read to decide if they'd like working with you.</p>
+          <p>We work with small and mid-sized teams who know what they want to automate or secure but don't have engineers on staff to build it. Our job is to be that team for a few weeks, then leave you with something you own and understand.</p>
+          <p>Every project is scoped in plain language, built with mainstream tools rather than lock-in, and handed over with documentation your own people can follow.</p>
+        </div>
+
+        <div>
+          <ul class="principles" aria-label="How we work">
+            <li class="principle">
+              <h3>Efficient by default</h3>
+              <p>We start with the task that costs your team the most hours, not the one that demos best. Small, shippable pieces over long roadmaps.</p>
+            </li>
+            <li class="principle">
+              <h3>Secure from day one</h3>
+              <p>Access control, secret handling, and audit logging are part of the first build, not a follow-up phase. Especially when AI is touching your data.</p>
+            </li>
+            <li class="principle">
+              <h3>Custom-built, not templated</h3>
+              <p>No off-the-shelf bot dressed up as a solution. We build for your workflow, your systems, and your constraints, and you keep the code.</p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= WORK ================= -->
+    <section class="section" id="work">
+      <div class="container">
+        <div class="section-intro">
+          <h2>Recent work</h2>
+          <p class="placeholder">Replace these three examples with real case studies. Each needs a client (or industry), the problem, what was built, and one measurable result.</p>
+        </div>
+
+        <div class="work-grid">
+          <article class="case">
+            <div class="case-visual" aria-hidden="true">Image or screenshot</div>
+            <div class="case-body">
+              <span class="case-tag">AI agent + Slack</span>
+              <h3>Support triage for a logistics company</h3>
+              <p>An agent that reads inbound tickets, tags urgency, drafts a first reply, and posts anything ambiguous to Slack for a human decision.</p>
+              <p class="case-result">Result: first response time cut from hours to minutes</p>
+            </div>
+          </article>
+
+          <article class="case">
+            <div class="case-visual" aria-hidden="true">Image or screenshot</div>
+            <div class="case-body">
+              <span class="case-tag">MCP integration</span>
+              <h3>Claude connected to an internal inventory database</h3>
+              <p>A permissioned MCP server so the operations team could ask stock and order questions in plain English instead of waiting on reports.</p>
+              <p class="case-result">Result: weekly reporting request queue eliminated</p>
+            </div>
+          </article>
+
+          <article class="case">
+            <div class="case-visual" aria-hidden="true">Image or screenshot</div>
+            <div class="case-body">
+              <span class="case-tag">Cybersecurity</span>
+              <h3>Security review before a first enterprise customer</h3>
+              <p>Cloud account audit, secrets cleanup, MFA rollout, and a short written policy set the buyer's procurement team accepted first time.</p>
+              <p class="case-result">Result: passed vendor security review with no follow-ups</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CONTACT ================= -->
+    <section class="section contact" id="contact">
+      <div class="container">
+        <div class="section-intro">
+          <h2>Tell us what's slowing your team down</h2>
+          <p>A 30-minute call is enough to tell you whether we can help and roughly what it would take. No pitch deck.</p>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-aside">
+            <h3>Prefer email?</h3>
+            <!-- TODO: replace with your real address (both the href and the visible text) -->
+            <p class="email"><a href="mailto:hello@aiquor.example">hello@aiquor.example</a></p>
+            <dl>
+              <dt>Response time</dt>
+              <dd>Within one business day.</dd>
+              <dt>Where we work</dt>
+              <dd class="placeholder">Your location and time zone, and whether you work remotely with clients elsewhere.</dd>
+            </dl>
+          </div>
+
+          <!--
+            FORM SETUP (Formspree):
+            1. Create a form at https://formspree.io and copy its ID.
+            2. Replace YOUR_FORM_ID below with that ID.
+            3. In Formspree, set the notification email and enable spam protection.
+            The JS at the bottom submits via fetch for inline success/error messages;
+            if JS is disabled, the form still posts normally to Formspree.
+          -->
+          <form class="form" id="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" novalidate>
+            <div class="form-row">
+              <div class="field">
+                <label for="name">Name</label>
+                <input id="name" name="name" type="text" autocomplete="name" required>
+                <p class="field-error" id="name-error" aria-live="polite"></p>
+              </div>
+              <div class="field">
+                <label for="email">Work email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required>
+                <p class="field-error" id="email-error" aria-live="polite"></p>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="company">Company <span class="hint">(optional)</span></label>
+              <input id="company" name="company" type="text" autocomplete="organization">
+            </div>
+
+            <div class="field">
+              <label for="interest">What are you looking for?</label>
+              <select id="interest" name="interest">
+                <option value="">Not sure yet</option>
+                <option>AI agents &amp; automation</option>
+                <option>MCP integration</option>
+                <option>Custom Slack app</option>
+                <option>Web development</option>
+                <option>Cybersecurity</option>
+                <option>A mix of these</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="message">Tell us about the problem</label>
+              <span class="hint" id="message-hint">A few sentences is plenty. What's the task, who does it today, and what would "better" look like?</span>
+              <textarea id="message" name="message" required aria-describedby="message-hint"></textarea>
+              <p class="field-error" id="message-error" aria-live="polite"></p>
+            </div>
+
+            <!-- Honeypot for basic spam filtering; Formspree ignores fields named _gotcha -->
+            <input type="text" name="_gotcha" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <input type="hidden" name="_subject" value="New enquiry from aiquor website">
+
+            <div class="form-status" id="form-status" role="status" aria-live="polite"></div>
+
+            <div class="form-footer">
+              <button type="submit" class="btn btn-primary" id="submit-btn">Send message</button>
+              <small>We'll only use this to reply to you.</small>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="footer">
+    <div class="container">
+      <span>&copy; <span id="year">2026</span> Aiquor. All rights reserved.</span>
+      <ul>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#work">Work</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <!-- TODO: add LinkedIn / GitHub links when ready -->
+      </ul>
+    </div>
+  </footer>
+
+  <script>
+    // ---------- Mobile navigation ----------
+    (function () {
+      var toggle = document.querySelector('.nav-toggle');
+      var menu = document.getElementById('nav-mobile');
+      if (!toggle || !menu) return;
+
+      function setOpen(open) {
+        menu.dataset.open = String(open);
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      }
+      toggle.addEventListener('click', function () {
+        setOpen(menu.dataset.open !== 'true');
+      });
+      menu.addEventListener('click', function (e) {
+        if (e.target.closest('a')) setOpen(false);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && menu.dataset.open === 'true') { setOpen(false); toggle.focus(); }
+      });
+    })();
+
+    // ---------- Contact form: inline validation + fetch submit ----------
+    (function () {
+      var form = document.getElementById('contact-form');
+      if (!form) return;
+      var status = document.getElementById('form-status');
+      var submitBtn = document.getElementById('submit-btn');
+
+      var fields = {
+        name:    { el: form.name,    error: 'Please tell us your name.' },
+        email:   { el: form.email,   error: 'Please enter a valid email address.' },
+        message: { el: form.message, error: 'Please describe the problem in a sentence or two.' }
+      };
+
+      function setError(key, msg) {
+        var f = fields[key];
+        var box = document.getElementById(key + '-error');
+        f.el.closest('.field').dataset.invalid = msg ? 'true' : 'false';
+        f.el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        if (box) box.textContent = msg || '';
+      }
+
+      function validate() {
+        var firstInvalid = null;
+        Object.keys(fields).forEach(function (key) {
+          var f = fields[key];
+          var value = f.el.value.trim();
+          var ok = value.length > 0;
+          if (key === 'email' && ok) ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+          setError(key, ok ? '' : f.error);
+          if (!ok && !firstInvalid) firstInvalid = f.el;
+        });
+        return firstInvalid;
+      }
+
+      Object.keys(fields).forEach(function (key) {
+        fields[key].el.addEventListener('input', function () {
+          if (fields[key].el.closest('.field').dataset.invalid === 'true') validate();
+        });
+      });
+
+      function showStatus(state, msg) {
+        status.dataset.state = state;
+        status.textContent = msg;
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var firstInvalid = validate();
+        if (firstInvalid) { firstInvalid.focus(); return; }
+
+        if (form.action.indexOf('YOUR_FORM_ID') !== -1) {
+          showStatus('error', 'The form isn\u2019t connected yet. Add your Formspree form ID to the form action, or email us directly.');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending\u2026';
+        status.dataset.state = '';
+
+        fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'Accept': 'application/json' }
+        }).then(function (res) {
+          if (res.ok) {
+            form.reset();
+            showStatus('success', 'Message sent. We\u2019ll reply within one business day.');
+          } else {
+            return res.json().then(function (data) {
+              var msg = (data && data.errors) ? data.errors.map(function (er) { return er.message; }).join(' ') : 'Something went wrong sending your message.';
+              showStatus('error', msg + ' You can also email us directly.');
+            });
+          }
+        }).catch(function () {
+          showStatus('error', 'Couldn\u2019t reach the form service. Check your connection or email us directly.');
+        }).finally(function () {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send message';
+        });
+      });
+    })();
+
+    // ---------- Footer year ----------
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

@@ -248,6 +248,9 @@
     }
     .nav-mobile a:hover { background: rgba(30, 79, 63, 0.06); }
     .nav-mobile .btn { margin: var(--space-2) var(--space-2) 0; width: calc(100% - 2rem); }
+    /* Nav CTA: undo generic nav-link styling so .btn-dark renders as a real button */
+    .nav-links a.btn, .nav-mobile a.btn { color: #fff; padding: 0 1.5rem; border-bottom: 0; font-weight: 600; }
+    .nav-links a.btn:hover, .nav-mobile a.btn:hover { color: #fff; border-color: transparent; background: var(--color-pine-deep); }
 
     @media (min-width: 900px) {
       .nav-links { display: flex; }

@@ -361,6 +361,26 @@
     .principle h3 { font-size: var(--text-lg); margin-bottom: 0.35rem; }
     .principle p { margin: 0; color: var(--color-muted); }
 
+    .team-intro { margin-top: var(--space-5); margin-bottom: var(--space-3); }
+    .team { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+    @media (min-width: 640px) { .team { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+    @media (min-width: 900px) { .team { grid-template-columns: repeat(2, minmax(0, 340px)); } }
+    .member {
+      display: flex; align-items: center; gap: var(--space-2);
+      background: var(--color-paper);
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-md);
+      padding: var(--space-2) var(--space-3);
+    }
+    .member-avatar {
+      flex: none; width: 56px; height: 56px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--color-pine); color: #fff;
+      font-family: var(--font-heading); font-weight: 700; font-size: var(--text-lg); letter-spacing: 0.02em;
+    }
+    .member h3 { font-size: var(--text-lg); margin: 0; }
+    .member p { margin: 0.15rem 0 0; color: var(--color-muted); }
+
     /* =========================================================
        8. WORK / CASE STUDIES
        ========================================================= */
@@ -678,7 +698,7 @@
           <div class="section-intro">
             <h2>Who we are</h2>
           </div>
-          <p class="placeholder">Two or three sentences on the founders: names, backgrounds, and why you started Aiquor. Keep it human; this is the part people read to decide if they'd like working with you.</p>
+          <p>Aiquor is run by two engineers, Yasir Khan and Hashir Khan, working from Manila and Islamabad.</p>
           <p>We work with small and mid-sized teams who know what they want to automate or secure but don't have engineers on staff to build it. Our job is to be that team for a few weeks, then leave you with something you own and understand.</p>
           <p>We scope every project in plain language, build it with mainstream tools you can hire for, and hand it over with documentation your own people can follow.</p>
         </div>
@@ -699,6 +719,29 @@
             </li>
           </ul>
         </div>
+      </div>
+
+      <div class="container">
+        <div class="section-intro team-intro">
+          <h2>The people you'll work with</h2>
+          <p>Two engineers. The people on this page are the people on the call and on the code.</p>
+        </div>
+        <ul class="team" aria-label="Team">
+          <li class="member">
+            <span class="member-avatar" aria-hidden="true">YK</span>
+            <div>
+              <h3>Yasir Khan</h3>
+              <p>Senior Software Engineer</p>
+            </div>
+          </li>
+          <li class="member">
+            <span class="member-avatar" aria-hidden="true">HK</span>
+            <div>
+              <h3>Hashir Khan</h3>
+              <p>Software Engineer</p>
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
 

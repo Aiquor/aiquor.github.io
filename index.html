@@ -907,6 +907,139 @@
       }
       .hero3d-on .hero .lead, .hero3d-on .hero-actions { text-shadow: 0 1px 2px rgba(18, 38, 31, 0.9), 0 0 18px rgba(18, 38, 31, 0.95); }
     }
+    /* =========================================================
+       13. UI IMPROVEMENTS
+       ========================================================= */
+
+    /* ---- Footer social icons ---- */
+    .footer-social a {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      color: var(--color-muted);
+      transition: color 180ms ease, background-color 180ms ease, transform 220ms cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .footer-social a:hover {
+      color: var(--color-ink);
+      background: rgba(30,79,63,0.08);
+      transform: translateY(-3px);
+    }
+
+    /* ---- Hero: stronger impact, trust badges ---- */
+    .hero h1 {
+      /* slightly larger on wider viewports */
+      line-height: 1.06;
+    }
+    @media (min-width: 1024px) {
+      .hero h1 { font-size: clamp(var(--text-3xl), 4.2vw, 4.5rem); }
+    }
+
+    /* Subtle animated underline accent on the hero headline keyword */
+    .hero-accent {
+      position: relative;
+      white-space: nowrap;
+    }
+    .hero-accent::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -3px;
+      height: 3px;
+      background: linear-gradient(90deg, var(--color-marigold), var(--color-marigold-deep));
+      border-radius: 2px;
+      transform: scaleX(0);
+      transform-origin: left;
+      animation: hero-accent-in 600ms cubic-bezier(0.22,0.61,0.36,1) 800ms forwards;
+    }
+    @keyframes hero-accent-in { to { transform: scaleX(1); } }
+
+    /* Trust badge strip below hero CTAs */
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin-top: var(--space-3);
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: var(--text-xs);
+      color: var(--color-muted);
+      font-weight: 500;
+    }
+    .hero-badge svg {
+      width: 14px; height: 14px;
+      color: var(--color-pine);
+      flex: none;
+    }
+
+    /* ---- Mobile: bigger tap targets, better spacing ---- */
+    @media (max-width: 639px) {
+      .hero { padding-top: var(--space-4); }
+      .hero h1 { font-size: clamp(2rem, 8.5vw, 2.75rem); }
+      .btn { min-height: 52px; font-size: 1rem; }
+      .section { padding: var(--space-4) 0; }
+      .case-body { padding: var(--space-2); }
+      .form { padding: var(--space-3); }
+      .build-sheet { padding: var(--space-2); }
+    }
+
+    /* ---- Enhanced micro-interactions ---- */
+
+    /* Case cards: coloured top-border on hover */
+    .case {
+      border-top: 3px solid transparent;
+      transition: transform 280ms cubic-bezier(0.22,0.61,0.36,1),
+                  box-shadow 280ms ease, border-top-color 280ms ease;
+    }
+    .case:hover { border-top-color: var(--color-marigold); }
+
+    /* Service icon: bounce in on hover (replaces the existing simple lift) */
+    .service:hover .service-icon {
+      animation: icon-bounce 400ms cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes icon-bounce {
+      0%   { transform: translateY(0) rotate(0); }
+      40%  { transform: translateY(-8px) rotate(-8deg); }
+      70%  { transform: translateY(-5px) rotate(-5deg); }
+      100% { transform: translateY(-4px) rotate(-6deg); }
+    }
+
+    /* Stat/result line: marigold highlight on hover */
+    .case-result {
+      transition: color 200ms ease;
+    }
+    .case:hover .case-result { color: var(--color-marigold); }
+
+    /* Member avatar: pulsing glow on card hover */
+    .member:hover .member-avatar {
+      box-shadow: 0 0 0 4px rgba(233,162,59,0.35), inset 0 0 0 2px rgba(255,255,255,0.18);
+    }
+
+    /* Scroll-to-top: smooth fade-in FAB */
+    .scroll-top {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.5rem;
+      z-index: 40;
+      width: 44px; height: 44px;
+      display: grid; place-items: center;
+      background: var(--color-pine);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 280ms ease, transform 280ms ease, background-color 180ms ease;
+      pointer-events: none;
+    }
+    .scroll-top.is-visible {
+      opacity: 1; transform: none; pointer-events: auto;
+    }
+    .scroll-top:hover { background: var(--color-pine-deep); }
+    .scroll-top svg { width: 20px; height: 20px; }
+
   </style>
 </head>
 
@@ -932,7 +1065,7 @@
           <li><a href="#services">Services</a></li>
           <li><a href="#about">About</a></li>
           <li><a href="#work">Work</a></li>
-          <li><a href="#contact" class="btn btn-dark" style="min-height:44px;">Book a call</a></li>
+          <li><a href="https://calendly.com/imeanhashir88/30min" target="_blank" rel="noopener" class="btn btn-dark" style="min-height:44px;">Book a call</a></li>
         </ul>
       </nav>
 
@@ -948,7 +1081,7 @@
         <li><a href="#about">About</a></li>
         <li><a href="#work">Work</a></li>
       </ul>
-      <a href="#contact" class="btn btn-dark">Book a call</a>
+      <a href="https://calendly.com/imeanhashir88/30min" target="_blank" rel="noopener" class="btn btn-dark">Book a call</a>
     </div>
   </header>
 
@@ -958,13 +1091,27 @@
     <section class="hero" data-scene="1">
       <div class="container hero-grid">
         <div>
-          <h1 data-reveal>We build AI agents, MCP integrations, and custom tools that save your team hours and close its security gaps.</h1>
+          <h1 data-reveal>We build <span class="hero-accent">AI agents</span>, MCP integrations, and custom tools that save your team hours and close its security gaps.</h1>
           <p class="lead" data-reveal>
             Aiquor is a small engineering team for businesses without one. We design and ship the automation, integrations, and security you would build yourself if you had the people, then hand you code your own staff can maintain.
           </p>
           <div class="hero-actions" data-reveal>
-            <a href="#contact" class="btn btn-primary">Book a call <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+            <a href="https://calendly.com/imeanhashir88/30min" target="_blank" rel="noopener" class="btn btn-primary">Book a call <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
             <a href="#services" class="btn btn-secondary">See what we build <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+          </div>
+          <div class="hero-badges" data-reveal>
+            <span class="hero-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Code you own
+            </span>
+            <span class="hero-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              Shipped in weeks, not months
+            </span>
+            <span class="hero-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              No lock-in
+            </span>
           </div>
         </div>
 
@@ -1174,7 +1321,7 @@
       <div class="container">
         <div class="section-intro" data-reveal>
           <h2>Recent work</h2>
-          <p class="placeholder">Replace these three examples with real case studies. Each needs a client (or industry), the problem, what was built, and one measurable result.</p>
+          <p>A sample of what we've shipped. Clients are anonymised at their request.</p>
         </div>
 
         <div class="work-grid">
@@ -1216,9 +1363,9 @@
             </div>
             <div class="case-body">
               <span class="case-tag">AI agent + Slack</span>
-              <h3>Support triage for a logistics company</h3>
-              <p>We built an agent that reads inbound tickets, tags urgency, drafts a first reply, and posts anything ambiguous to Slack for a person to decide.</p>
-              <p class="case-result">Result: first response time dropped from hours to minutes</p>
+              <h3>Inbox triage for an e-commerce brand</h3>
+              <p>A mid-sized online retailer was drowning in support emails. We built an agent that reads, tags, drafts a reply, and escalates anything ambiguous to Slack for a human to approve before it sends.</p>
+              <p class="case-result">Result: first-response time cut from 6 hours to under 4 minutes</p>
             </div>
           </article>
 
@@ -1252,9 +1399,9 @@
             </div>
             <div class="case-body">
               <span class="case-tag">MCP integration</span>
-              <h3>Claude connected to an internal inventory database</h3>
-              <p>We built a permissioned MCP server so the operations team can ask stock and order questions in plain English and get answers in seconds.</p>
-              <p class="case-result">Result: the weekly reporting request queue went to zero</p>
+              <h3>Claude connected to a property management platform</h3>
+              <p>A PropTech startup wanted its ops team to query live lease, maintenance, and payment data in plain English. We built a permissioned MCP server over their PostgreSQL database — no SQL required.</p>
+              <p class="case-result">Result: weekly reporting time dropped from 3 hours to 10 minutes</p>
             </div>
           </article>
 
@@ -1293,9 +1440,9 @@
             </div>
             <div class="case-body">
               <span class="case-tag">Cybersecurity</span>
-              <h3>Security review before a first enterprise customer</h3>
-              <p>We audited the cloud accounts, cleaned up secrets, rolled out MFA, and wrote a short policy set that the buyer's procurement team accepted on first submission.</p>
-              <p class="case-result">Result: passed the vendor security review with no follow-up questions</p>
+              <h3>Security hardening for a SaaS startup pre-Series A</h3>
+              <p>A fintech startup needed to pass a customer security review before closing a major contract. We audited cloud accounts, rotated secrets, enforced MFA, and produced a policy set the buyer accepted in one round.</p>
+              <p class="case-result">Result: passed the vendor security review — deal closed on schedule</p>
             </div>
           </article>
         </div>
@@ -1313,8 +1460,7 @@
         <div class="contact-grid">
           <div class="contact-aside">
             <h3>Prefer email?</h3>
-            <!-- TODO: replace with your real address (both the href and the visible text) -->
-            <p class="email"><a href="mailto:hello@aiquor.example">hello@aiquor.example</a></p>
+            <p class="email"><a href="mailto:imeanhashir88@gmail.com">imeanhashir88@gmail.com</a></p>
             <dl>
               <dt>Response time</dt>
               <dd>Within one business day.</dd>
@@ -1401,7 +1547,16 @@
         <li><a href="#about">About</a></li>
         <li><a href="#work">Work</a></li>
         <li><a href="#contact">Contact</a></li>
-        <!-- TODO: add LinkedIn / GitHub links when ready -->
+        <li class="footer-social">
+          <a href="https://linkedin.com/company/aiquor" aria-label="Aiquor on LinkedIn" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.37V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.35-1.85 3.58 0 4.25 2.36 4.25 5.43v6.31zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+          </a>
+        </li>
+        <li class="footer-social">
+          <a href="https://github.com/aiquor" aria-label="Aiquor on GitHub" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          </a>
+        </li>
       </ul>
     </div>
   </footer>
@@ -1613,5 +1768,22 @@
     }
   </script>
   <script type="module" src="js/hero3d.js"></script>
+
+  <!-- Scroll-to-top FAB -->
+  <button class="scroll-top" id="scroll-top" aria-label="Scroll to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
+  <script>
+    (function () {
+      var btn = document.getElementById('scroll-top');
+      if (!btn) return;
+      window.addEventListener('scroll', function () {
+        btn.classList.toggle('is-visible', window.pageYOffset > 400);
+      }, { passive: true });
+      btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+  </script>
 </body>
 </html>

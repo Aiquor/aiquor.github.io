@@ -587,17 +587,7 @@
 
     /* ---- Hero backdrop: a drifting wash plus a faded grid ---- */
     .hero { position: relative; overflow: hidden; }
-    .hero > .container { position: relative; z-index: 2; }
-    .hero-canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      pointer-events: none;
-      display: block;
-    }
+    .hero > .container { position: relative; z-index: 1; }
     .hero::before {
       content: ""; position: absolute; inset: -25% -12% auto -12%; height: 150%;
       z-index: 0; pointer-events: none;
@@ -762,10 +752,50 @@
       .case-art .art-draw { stroke-dashoffset: 0 !important; }
       .scroll-progress { display: none; }
     }
+
+    /* =========================================================
+       12. HERO 3D — fixed WebGL canvas behind the page (js/hero3d.js)
+       Classes on <html>, set by the script:
+         .hero3d-on       WebGL is running
+         .hero3d-ready    first frame rendered, fade the canvas in
+         .hero3d-lite     mobile / coarse-pointer tier
+         .hero3d-fallback WebGL unavailable: soft gradient instead
+       ========================================================= */
+    .hero3d {
+      position: fixed; inset: 0;
+      z-index: -1;                 /* above the page background, below all content */
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 900ms ease;
+    }
+    .hero3d-canvas { display: block; width: 100%; height: 100%; transition: opacity 400ms linear; }
+    .hero3d-ready .hero3d { opacity: 1; }
+
+    .hero3d-fallback .hero3d { opacity: 1; }
+    .hero3d-fallback .hero3d-canvas { display: none; }
+    .hero3d-fallback .hero3d {
+      background:
+        radial-gradient(40% 50% at 78% 32%, rgba(30, 79, 63, 0.14), transparent 70%),
+        radial-gradient(28% 36% at 86% 62%, rgba(233, 162, 59, 0.14), transparent 70%);
+    }
+
+    /* Desktop: the laptop takes the hero's right column, so the build
+       sheet steps aside. It still shows on mobile and without WebGL. */
+    @media (min-width: 900px) {
+      .hero3d-on .hero .build-sheet { display: none; }
+      .hero3d-on .hero { min-height: min(86vh, 820px); display: flex; align-items: center; }
+      .hero3d-on .hero > .container { width: 100%; }
+      .hero3d-on .hero::after { opacity: 0.45; }
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- Hero 3D canvas (js/hero3d.js). Decorative only. -->
+  <div class="hero3d" aria-hidden="true">
+    <canvas class="hero3d-canvas" id="hero3d-canvas" aria-hidden="true"></canvas>
+  </div>
 
   <div class="scroll-progress" aria-hidden="true"><span></span></div>
 
@@ -805,8 +835,7 @@
   <main id="top">
 
     <!-- ================= HERO ================= -->
-    <section class="hero">
-      <canvas id="hero-canvas" class="hero-canvas" aria-hidden="true"></canvas>
+    <section class="hero" data-scene="1">
       <div class="container hero-grid">
         <div>
           <h1 data-reveal>We build AI agents, MCP integrations, and custom tools that save your team hours and close its security gaps.</h1>
@@ -856,7 +885,7 @@
     </section>
 
     <!-- ================= SERVICES ================= -->
-    <section class="section" id="services">
+    <section class="section" id="services" data-scene="2">
       <div class="container">
         <div class="section-intro" data-reveal>
           <h2>What we build</h2>
@@ -960,7 +989,7 @@
     </section>
 
     <!-- ================= ABOUT ================= -->
-    <section class="section" id="about">
+    <section class="section" id="about" data-scene="3">
       <div class="container about-grid">
         <div>
           <div class="section-intro" data-reveal>
@@ -1021,7 +1050,7 @@
     </section>
 
     <!-- ================= WORK ================= -->
-    <section class="section" id="work">
+    <section class="section" id="work" data-scene="4">
       <div class="container">
         <div class="section-intro" data-reveal>
           <h2>Recent work</h2>
@@ -1175,14 +1204,18 @@
           </div>
 
           <!--
-            FORM SETUP (Formspree):
-            1. Create a form at https://formspree.io and copy its ID.
-            2. Replace YOUR_FORM_ID below with that ID.
-            3. In Formspree, set the notification email and enable spam protection.
-            The JS at the bottom submits via fetch for inline success/error messages;
-            if JS is disabled, the form still posts normally to Formspree.
+            FORM SETUP (FormSubmit, https://formsubmit.co — no account needed):
+            1. Submit the form once from the live site. FormSubmit emails an
+               "Activate Form" link to the inbox in the action URL. Click it.
+               Until then, submissions are held and the form shows a notice.
+            2. Optional: the activation email also gives a random alias. Swap
+               the address in the action URL for that alias to keep the inbox
+               out of the page source.
+            The JS at the bottom submits via fetch to FormSubmit's AJAX endpoint
+            for inline success/error messages; with JS off, the form posts
+            normally and FormSubmit shows its own thank-you page.
           -->
-          <form class="form" id="contact-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST" novalidate>
+          <form class="form" id="contact-form" action="https://formsubmit.co/imeanhashir88@gmail.com" method="POST" novalidate>
             <div class="form-row">
               <div class="field">
                 <label for="name">Name</label>
@@ -1221,9 +1254,10 @@
               <p class="field-error" id="message-error" aria-live="polite"></p>
             </div>
 
-            <!-- Honeypot for basic spam filtering; Formspree ignores fields named _gotcha -->
-            <input type="text" name="_gotcha" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <!-- Honeypot for basic spam filtering; FormSubmit drops submissions that fill _honey -->
+            <input type="text" name="_honey" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
             <input type="hidden" name="_subject" value="New enquiry from aiquor website">
+            <input type="hidden" name="_template" value="table">
 
             <div class="form-status" id="form-status" role="status" aria-live="polite"></div>
 
@@ -1325,30 +1359,32 @@
         var firstInvalid = validate();
         if (firstInvalid) { firstInvalid.focus(); return; }
 
-        if (form.action.indexOf('YOUR_FORM_ID') !== -1) {
-          showStatus('error', 'The form isn\u2019t connected yet. Add your Formspree form ID to the form action, or email us directly.');
-          return;
-        }
-
         submitBtn.disabled = true;
         submitBtn.classList.add('is-loading');
         submitBtn.textContent = 'Sending\u2026';
         status.dataset.state = '';
 
-        fetch(form.action, {
+        // FormSubmit's AJAX endpoint is the form action with /ajax/ inserted.
+        var endpoint = form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/');
+        var payload = {};
+        new FormData(form).forEach(function (value, key) { payload[key] = value; });
+        payload._replyto = payload.email;
+
+        fetch(endpoint, {
           method: 'POST',
-          body: new FormData(form),
-          headers: { 'Accept': 'application/json' }
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
         }).then(function (res) {
-          if (res.ok) {
-            form.reset();
-            showStatus('success', 'Message sent. We\u2019ll reply within one business day.');
-          } else {
-            return res.json().then(function (data) {
-              var msg = (data && data.errors) ? data.errors.map(function (er) { return er.message; }).join(' ') : 'Something went wrong sending your message.';
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            var ok = res.ok && (data.success === true || data.success === 'true');
+            if (ok) {
+              form.reset();
+              showStatus('success', 'Message sent. We\u2019ll reply within one business day.');
+            } else {
+              var msg = (data && data.message) ? data.message : 'Something went wrong sending your message.';
               showStatus('error', msg + ' You can also email us directly.');
-            });
-          }
+            }
+          });
         }).catch(function () {
           showStatus('error', 'Couldn\u2019t reach the form service. Check your connection or email us directly.');
         }).finally(function () {
@@ -1433,15 +1469,26 @@
     // ---------- Footer year ----------
     document.getElementById('year').textContent = new Date().getFullYear();
   </script>
-  <!-- Three.js CDN & Hero 3D Animation -->
+
+  <!-- ================= HERO 3D ================= -->
+  <script>
+    // If the 3D script never renders (CDN blocked, old browser), show the soft
+    // gradient instead. A late first frame removes this class again.
+    setTimeout(function () {
+      var root = document.documentElement;
+      if (!root.classList.contains('hero3d-ready')) root.classList.add('hero3d-fallback');
+    }, 8000);
+  </script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script type="importmap">
     {
       "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
       }
     }
   </script>
-  <script type="module" src="js/hero-scene.js"></script>
+  <script type="module" src="js/hero3d.js"></script>
 </body>
 </html>

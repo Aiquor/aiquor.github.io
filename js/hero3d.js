@@ -194,6 +194,9 @@ const CONFIG = {
   },
 
   // Screen texture sizes. Higher = sharper UI text on the device screens.
+  // Phone size relative to the laptop (1 = realistic). Bigger reads sharper.
+  phoneScale: 1.08,
+
   desktopCanvas: { phone: [960, 1920], laptop: [2048, 1280] },
 
   layout: {
@@ -220,17 +223,17 @@ const CONFIG = {
       name: '1 · wide 3/4, both devices',
       camera: { position: [3.6, 3.1, 10.4], lookAt: [0.45, 0.85, 0] },
       laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.2, 0] },
-      phone:  { position: [-1.3, 0.95, 1.05], rotation: [-0.08, 0.5, 0.02] },
-      frame:  { wide: { x: 0.25, y: 0.02 }, stacked: { x: 0, y: 0.25 } },
+      phone:  { position: [-0.72, 0.95, 1.65], rotation: [-0.08, 0.5, 0.02] },
+      frame:  { wide: { x: 0.26, y: 0.02 }, stacked: { x: 0, y: 0.25 } },
       stackedZoom: 1,
     },
     {
       name: '2 · glide to the phone (client types)',
-      camera: { position: [-0.45, 1.25, 5.0], lookAt: [-1.2, 0.98, 1.05] },
+      camera: { position: [-0.49, 1.23, 4.84], lookAt: [-1.2, 0.98, 1.05] },
       laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.2, 0] },
       phone:  { position: [-1.3, 0.98, 1.05], rotation: [-0.04, 0.16, 0] },
-      frame:  { wide: { x: 0.24, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
-      stackedZoom: 0.78,
+      frame:  { wide: { x: 0.24, y: 0.03 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 0.8,
     },
     {
       name: '3 · swing to the laptop dashboard',
@@ -242,17 +245,17 @@ const CONFIG = {
     },
     {
       name: '4 · back to the phone (slot picked)',
-      camera: { position: [-2.15, 1.45, 4.75], lookAt: [-1.15, 0.98, 1.0] },
+      camera: { position: [-2.11, 1.43, 4.6], lookAt: [-1.15, 0.98, 1.0] },
       laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.12, 0] },
       phone:  { position: [-1.3, 0.98, 1.05], rotation: [-0.04, -0.24, 0] },
-      frame:  { wide: { x: 0.24, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
-      stackedZoom: 0.78,
+      frame:  { wide: { x: 0.24, y: 0.03 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 0.8,
     },
     {
       name: '5 · pull back, side by side',
       camera: { position: [0.4, 1.75, 10.6], lookAt: [0.35, 0.88, 0] },
       laptop: { position: [0.8, 0, -0.3], rotation: [0, 0, 0] },
-      phone:  { position: [-1.3, 0.95, 0.5], rotation: [-0.04, 0.05, 0] },
+      phone:  { position: [-1.1, 0.95, 1.15], rotation: [-0.04, 0.08, 0] },
       frame:  { wide: { x: 0.27, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
       stackedZoom: 1,
     },
@@ -1122,6 +1125,7 @@ async function init() {
   const phoneRig = new THREE.Group(), phoneFloat = new THREE.Group();
   phoneRig.add(phoneFloat); world.add(phoneRig);
   const P = buildPhone(mats, phoneScreen);
+  P.phone.scale.setScalar(CONFIG.phoneScale);
   phoneFloat.add(P.phone);
 
   // Contact shadows (blurred radial planes, no shadow maps)

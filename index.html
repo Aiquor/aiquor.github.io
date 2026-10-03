@@ -12,6 +12,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
 
   <script>document.documentElement.classList.add('js');</script>
+  <script>
+    // Hero 3D: decide the layout before first paint so the page does not
+    // jump when js/hero3d.js loads. Three.js needs WebGL2.
+    (function () {
+      var root = document.documentElement;
+      try {
+        var gl = document.createElement('canvas').getContext('webgl2');
+        if (gl) {
+          root.classList.add('hero3d-on');
+          var lose = gl.getExtension('WEBGL_lose_context');
+          if (lose) lose.loseContext();
+        } else root.classList.add('hero3d-fallback');
+      } catch (e) { root.classList.add('hero3d-fallback'); }
+    })();
+  </script>
 
   <style>
     /* =========================================================
@@ -754,38 +769,143 @@
     }
 
     /* =========================================================
-       12. HERO 3D — fixed WebGL canvas behind the page (js/hero3d.js)
-       Classes on <html>, set by the script:
-         .hero3d-on       WebGL is running
+       12. DARK THEME + HERO 3D (js/hero3d.js)
+       Everything here is additive: it re-points the tokens from
+       section 1 and overrides a few hard-coded light colours.
+       Classes on <html>:
+         .hero3d-on       WebGL available (set early in <head>)
          .hero3d-ready    first frame rendered, fade the canvas in
          .hero3d-lite     mobile / coarse-pointer tier
-         .hero3d-fallback WebGL unavailable: soft gradient instead
+         .hero3d-fallback no WebGL: CSS glow only
        ========================================================= */
+    :root {
+      --color-bg:         #12261F;
+      --color-glow:       #1C3B30;
+      --color-card:       #1A332A;
+      --color-border:     rgba(245, 241, 232, 0.10);
+      --color-text:       #F5F1E8;
+      --color-text-muted: #A9B8B1;
+      --color-accent:     #E8973A;
+      --color-brand:      #1F4D3F;
+      --color-device:     #2A6553;
+
+      /* Re-point the existing tokens */
+      --color-ink:        var(--color-text);
+      --color-pine:       var(--color-device);
+      --color-pine-deep:  var(--color-brand);
+      --color-marigold:   var(--color-accent);
+      --color-marigold-deep: #D4842B;
+      --color-stone:      var(--color-bg);
+      --color-paper:      var(--color-card);
+      --color-muted:      var(--color-text-muted);
+      --color-line:       var(--color-border);
+      --color-error:      #FF9C8F;
+      --color-success:    #8FD9B0;
+      color-scheme: dark;
+    }
+
+    a { color: #CFE3D8; }
+    a:hover { color: var(--color-accent); }
+
+    /* Nav: solid tint instead of backdrop blur. A blur over a canvas that
+       changes every frame is recomputed every frame, which causes lag. */
+    .nav, .nav.is-scrolled {
+      background: rgba(18, 38, 31, 0.94);
+      -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+    .nav.is-scrolled { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
+
+    .btn-primary, .btn-primary:hover { color: #12261F; }
+    .btn-secondary { color: var(--color-text); border-color: rgba(245, 241, 232, 0.35); }
+    .btn-secondary:hover { background: rgba(245, 241, 232, 0.08); color: var(--color-text); border-color: rgba(245, 241, 232, 0.6); }
+    .btn:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3); }
+
+    .build-sheet { border-color: var(--color-border); box-shadow: none; }
+    .build-sheet li svg { color: var(--color-accent); }
+
+    .service:hover { background: rgba(245, 241, 232, 0.03); }
+    .principle:hover, .member:hover, .case:hover { box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3); }
+    .member:hover { border-color: rgba(245, 241, 232, 0.25); }
+
+    .case-visual { background: linear-gradient(165deg, #1F3B32 0%, #17302A 100%); }
+    .case-tag { color: #9FD8B9; background: rgba(159, 216, 185, 0.10); }
+    .case-art [fill="#fff"]      { fill: #F5F1E8; fill-opacity: 0.06; }
+    .case-art [stroke="#1E4F3F"] { stroke: #F5F1E8; }
+    .case-art [fill="#1E4F3F"]   { fill: var(--color-device); }
+    .case-art [stroke="#1F6B4E"] { stroke: #8FD9B0; }
+
+    .field input, .field select, .field textarea {
+      background: var(--color-bg); color: var(--color-text); border-color: rgba(245, 241, 232, 0.16);
+    }
+    .field input:hover, .field select:hover, .field textarea:hover { border-color: rgba(245, 241, 232, 0.32); }
+    .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible {
+      border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(232, 151, 58, 0.22);
+    }
+    .field select option { background: var(--color-card); color: var(--color-text); }
+    .form { border: 1px solid var(--color-border); }
+
+    .contact { background: var(--color-card); }
+    .contact::before { display: none; }        /* animated light glow, not needed on dark */
+    .hero::before { display: none; }           /* light-theme wash; the glow now sits behind the devices */
+    .hero::after {
+      background-image:
+        linear-gradient(rgba(245, 241, 232, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 241, 232, 0.035) 1px, transparent 1px);
+    }
+
+    /* ---- Canvas layer ---- */
     .hero3d {
       position: fixed; inset: 0;
       z-index: -1;                 /* above the page background, below all content */
       pointer-events: none;
-      opacity: 0;
-      transition: opacity 900ms ease;
+      background: radial-gradient(42% 52% at 72% 48%, var(--color-glow), rgba(28, 59, 48, 0) 72%);
     }
-    .hero3d-canvas { display: block; width: 100%; height: 100%; transition: opacity 400ms linear; }
-    .hero3d-ready .hero3d { opacity: 1; }
-
-    .hero3d-fallback .hero3d { opacity: 1; }
+    .hero3d-canvas {
+      display: block; width: 100%; height: 100%;
+      opacity: 0; transition: opacity 900ms ease;
+    }
+    .hero3d-ready .hero3d-canvas { opacity: 1; }
     .hero3d-fallback .hero3d-canvas { display: none; }
-    .hero3d-fallback .hero3d {
-      background:
-        radial-gradient(40% 50% at 78% 32%, rgba(30, 79, 63, 0.14), transparent 70%),
-        radial-gradient(28% 36% at 86% 62%, rgba(233, 162, 59, 0.14), transparent 70%);
+
+    /* ---- Desktop: story column on the left, devices on the right ---- */
+    @media (min-width: 1024px) {
+      .hero3d-on [data-scene] > .container {
+        max-width: min(600px, 46vw);
+        margin-left: max(0px, calc((100vw - var(--max-width)) / 2));
+        margin-right: auto;
+      }
+      .hero3d-on [data-scene].section { border-top-color: transparent; }
+      .hero3d-on .hero { min-height: calc(100vh - var(--nav-height)); display: flex; align-items: center; }
+      .hero3d-on .hero > .container { width: 100%; }
+      .hero3d-on .hero-grid { grid-template-columns: 1fr; }
+      .hero3d-on .hero .build-sheet { display: none; }
+      .hero3d-on .service { grid-template-columns: 48px 1fr; gap: var(--space-3); }
+      .hero3d-on .service-examples { grid-column: 2; }
+      .hero3d-on .about-grid { grid-template-columns: 1fr; gap: var(--space-4); }
+      .hero3d-on .team { grid-template-columns: 1fr 1fr; }
+      .hero3d-on .work-grid { grid-template-columns: 1fr; }
+      .hero3d-on .contact { background: transparent; }
+      .hero3d-on .contact::after { display: none; }
+      .hero3d-on .contact-grid { grid-template-columns: 1fr; }
     }
 
-    /* Desktop: the laptop takes the hero's right column, so the build
-       sheet steps aside. It still shows on mobile and without WebGL. */
-    @media (min-width: 900px) {
-      .hero3d-on .hero .build-sheet { display: none; }
-      .hero3d-on .hero { min-height: min(86vh, 820px); display: flex; align-items: center; }
-      .hero3d-on .hero > .container { width: 100%; }
-      .hero3d-on .hero::after { opacity: 0.45; }
+    /* ---- Tablet / phone: text and devices take turns ----
+       Each story section's text gets a soft dark backing so it stays
+       readable over the devices, then a clear gap below it shows the
+       current step. In the hero, the gap sits right under the headline. */
+    @media (max-width: 1023.98px) {
+      .hero3d { background: radial-gradient(70% 40% at 50% 62%, var(--color-glow), rgba(28, 59, 48, 0) 72%); }
+      .hero3d-on .hero h1 { margin-bottom: 46vh; }
+      .hero3d-on [data-scene] { padding-bottom: calc(var(--space-5) + 56vh); }
+      .hero3d-on .contact { background: transparent; }
+      .hero3d-on .contact::after { display: none; }
+      .hero3d-on [data-scene].section > .container { position: relative; }
+      .hero3d-on [data-scene].section > .container::before {
+        content: ""; position: absolute; inset: -8px 0; z-index: -1; pointer-events: none;
+        background: rgba(18, 38, 31, 0.86);
+        box-shadow: 0 0 36px 28px rgba(18, 38, 31, 0.86);
+      }
+      .hero3d-on .hero .lead, .hero3d-on .hero-actions { text-shadow: 0 1px 2px rgba(18, 38, 31, 0.9), 0 0 18px rgba(18, 38, 31, 0.95); }
     }
   </style>
 </head>
@@ -1183,7 +1303,7 @@
     </section>
 
     <!-- ================= CONTACT ================= -->
-    <section class="section contact" id="contact">
+    <section class="section contact" id="contact" data-scene="5">
       <div class="container">
         <div class="section-intro" data-reveal>
           <h2>Tell us what's slowing your team down</h2>
@@ -1476,7 +1596,10 @@
     // gradient instead. A late first frame removes this class again.
     setTimeout(function () {
       var root = document.documentElement;
-      if (!root.classList.contains('hero3d-ready')) root.classList.add('hero3d-fallback');
+      if (!root.classList.contains('hero3d-ready')) {
+        root.classList.remove('hero3d-on');
+        root.classList.add('hero3d-fallback');
+      }
     }, 8000);
   </script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>

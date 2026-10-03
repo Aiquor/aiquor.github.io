@@ -1,281 +1,823 @@
 /* =============================================================================
    aiquor — hero3d.js
-   Three.js hero + scroll-driven 3D scene.
+   Laptop + phone booking story, scrubbed by scroll.
 
-   How it fits together:
-   - A fixed, full-screen canvas sits behind the page (see the CSS block in
+   How it fits together
+   - A fixed, transparent canvas sits behind the page (CSS block 12 in
      index.html). It never takes pointer events and is aria-hidden.
-   - Every section with a data-scene="N" attribute becomes one camera "shot".
-     CONFIG.scenes holds one keyframe per shot. The script adapts to however
-     many data-scene sections exist (extra sections reuse the last keyframes).
+   - Each section with data-scene="1".."5" is one step of the story. The script
+     measures those sections, so it follows the real layout and heights.
    - One GSAP timeline, scrubbed by ScrollTrigger, writes into `target` only.
      The render loop eases `current` toward `target` every frame, so scroll,
-     mouse parallax and the idle float all blend with no jumps.
-   - The laptop screen is a CanvasTexture that types out a code snippet per
-     scene and finishes on "Let's build with Aiquor_".
+     idle float and mouse parallax blend with no jumps, and scrolling up
+     rewinds everything.
+   - Both screens are CanvasTextures drawn from one value, `story` (0 → 4,
+     one unit per step). Typing, pulses, agent states and the booking all
+     read from it, so they rewind too.
 
-   Tweak CONFIG first. Everything below it is plumbing.
+   Performance choices (keep these if you extend it)
+   - MeshStandardMaterial only. No transmission, no shadow maps, no post FX.
+   - Keys are one InstancedMesh (one draw call); mobile uses a textured plane.
+   - Screens redraw only when the story moves or a small live detail ticks,
+     capped at 30fps (24 on mobile). Canvas shadows are faked with layered
+     fills because ctx.shadowBlur is slow.
+   - Render resolution is capped by pixel count and drops automatically if
+     frames get slow. Rendering stops when the tab is hidden or no story
+     section is on screen.
+
+   Edit CONFIG first. Everything below it is plumbing.
    ========================================================================== */
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 /* -----------------------------------------------------------------------------
    CONFIG
    -------------------------------------------------------------------------- */
 const CONFIG = {
   colors: {
-    background: '#F2F1EC',   // must match the page background (--color-stone)
-    body:       '#1F4D3F',   // laptop shell
-    keys:       '#16382D',
-    trackpad:   '#24574A',
-    accent:     '#E8973A',   // orange edge light + keyboard backlight
-    glassTint:  '#F7F3EA',
-    particle:   '#3E5049',   // most particles
-    particleWarm: '#E8973A', // the warm few
-    screenBg:   '#0B1612',
-    code: {
-      text:     '#DDE6E1',
-      keyword:  '#E8973A',
-      string:   '#9FD8B9',
-      comment:  '#6C7C75',
-      number:   '#F2C38B',
-      fn:       '#CFE9DC',
-      lineNo:   '#3A4B44',
-    },
+    background: '#12261F',   // used for fog; the page background shows through the canvas
+    device:     '#2A6553',   // laptop + phone bodies
+    deviceDeep: '#1F4D3F',   // keys, hinge, camera island
+    trackpad:   '#327561',
+    accent:     '#E8973A',
+    keyLight:   '#FFE6C7',
+    fillLight:  '#9FC4B5',
+    rimLight:   '#F5F1E8',
   },
 
-  // Renderer / lighting
-  exposure: 1.0,
-  envIntensity: 0.65,        // how much RoomEnvironment shows up in reflections
-  hemiIntensity: 0.55,
-  keyIntensity: 1.6,
-  screenLightIntensity: 2.2, // orange RectAreaLight spilling off the screen
-  accentGlow: 0.9,           // emissive intensity of the orange edge strips
-  backlightGlow: 0.16,       // emissive intensity of the keyboard backlight
-  maxPixelRatio: 2,
-
-  camera: {
-    fov: 30,
-    // Below this aspect ratio the fov widens so the laptop still fits (phones).
-    minAspect: 1.3,
-    maxFov: 58,
+  // Screen UI (both CanvasTextures)
+  ui: {
+    font:       'Figtree, "Helvetica Neue", Arial, sans-serif',
+    bg:         '#F5F1E8',
+    surface:    '#FFFFFF',
+    surfaceAlt: '#EDE6D8',
+    text:       '#1F4D3F',
+    muted:      '#71837B',
+    line:       'rgba(31,77,63,0.12)',
+    accent:     '#E8973A',
+    success:    '#2F8A5F',
+    idle:       '#B7C1BB',
+    online:     '#3BB273',
   },
 
-  particles: {
-    count: 1500,
-    warmShare: 0.08,         // ~8% orange
-    size: 11,                // base sprite size in px at distance 10
-    maxSize: 34,             // px cap so near particles never turn into blobs
-    opacityMin: 0.25,
-    opacityMax: 0.45,
-    focusDistance: 9,        // faux depth of field: sharpest at this camera distance
-    focusRange: 6,
-    drift: 0.35,             // noise drift amplitude (world units)
-    driftSpeed: 0.12,
-    bounds: { x: 11, yMin: -5, yMax: 8, zMin: -9, zMax: 5 },
+  // Phone: the client's chat with the Aiquor Assistant
+  chat: {
+    appName:       'Aiquor Assistant',
+    status:        'Online · replies instantly',
+    greeting:      'Hi! How can I help you today?',
+    clientMessage: "Hi, I'd like a call about automating my customer support",
+    reply:         'Great! Here are a few times for a quick call:',
+    slots:         ['Wed, 11:00 AM', 'Thu, 3:00 PM', 'Fri, 9:30 AM'],
+    pick:          1,                          // index into slots
+    pickedMessage: 'Thu, 3:00 PM works for me',
+    bookedTitle:   'Call booked ✓',
+    bookedDetail:  'Thu, 3:00 PM · 30 min',
+    bookedNote:    'Invite sent to your email',
+    notifyTitle:   'Aiquor Assistant',
+    notifyBody:    'Call booked for Thu, 3:00 PM',
+    placeholder:   'Message',
   },
 
-  glass: {
-    count: 7,
-    transmission: 1,
-    ior: 1.4,
-    iridescence: 0.3,
-    // ACES tone mapping greys out the light page seen through the glass;
-    // values above 1 lift it back to a clear, bright look.
-    brightness: 1.45,
-    // Each shape: type, size, base position, rotation speed, float amp/speed,
-    // and scroll parallax (how far it slides per scene, bigger = closer feel).
-    shapes: [
-      { type: 'roundedCube', size: 0.62, pos: [ 2.35, 2.55, -1.5], rot: [0.12, 0.18, 0.05], amp: 0.16, speed: 0.55, parallax: 0.35, thickness: 1.1, roughness: 0.08 },
-      { type: 'torus',       size: 0.44, pos: [-1.65, 2.55,  1.35], rot: [0.22, 0.10, 0.16], amp: 0.20, speed: 0.70, parallax: 0.85, thickness: 0.7, roughness: 0.06 },
-      { type: 'icosa',       size: 0.42, pos: [ 2.45, 0.55,  1.55], rot: [0.10, 0.25, 0.08], amp: 0.14, speed: 0.62, parallax: 0.75, thickness: 0.9, roughness: 0.12 },
-      { type: 'capsule',     size: 0.20, pos: [-0.55, 3.15, -1.85], rot: [0.06, 0.08, 0.20], amp: 0.12, speed: 0.48, parallax: 0.25, thickness: 0.8, roughness: 0.10 },
-      { type: 'torus',       size: 0.24, pos: [ 1.20, 3.05,  1.20], rot: [0.30, 0.20, 0.10], amp: 0.18, speed: 0.80, parallax: 0.95, thickness: 0.6, roughness: 0.05 },
-      { type: 'icosa',       size: 0.26, pos: [-2.05, 0.55, -1.00], rot: [0.14, 0.12, 0.18], amp: 0.10, speed: 0.58, parallax: 0.30, thickness: 0.7, roughness: 0.15 },
-      { type: 'roundedCube', size: 0.34, pos: [ 3.25, 1.65,  0.15], rot: [0.16, 0.22, 0.12], amp: 0.15, speed: 0.66, parallax: 0.55, thickness: 0.8, roughness: 0.07 },
+  // Laptop: the Aiquor Agents dashboard
+  dashboard: {
+    title:     'Aiquor Agents',
+    subtitle:  'Your AI team, working in real time',
+    online:    '3 agents online',
+    agents: [
+      { name: 'Receptionist Agent', role: 'Reads every request',     initial: 'R' },
+      { name: 'Scheduler Agent',    role: 'Finds a time that works', initial: 'S' },
+      { name: 'Follow-up Agent',    role: 'Confirms and reminds',    initial: 'F' },
     ],
+    calendarTitle: 'Availability · this week',
+    calendarIdle:  'Waiting for a request…',
+    days:  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    times: ['9:30', '11:00', '1:00', '3:00'],
+    // [dayIndex, timeIndex] of the open slots, in the same order as chat.slots
+    openSlots: [[2, 1], [3, 3], [4, 0]],
+    summary:   'Booked in 42s by Aiquor agents',
+    logTitle:  'Live activity',
+    logIdle:   'Waiting for activity…',
+  },
+
+  // Activity log lines. `at` is in story units (0 = step 1 … 4 = step 5).
+  log: [
+    { at: 0.86, text: 'New message from client…' },
+    { at: 0.92, text: 'Understanding request…' },
+    { at: 0.98, text: 'Intent: book a call' },
+    { at: 1.28, text: 'Handoff → Scheduler Agent' },
+    { at: 1.50, text: 'Checking calendar…' },
+    { at: 1.92, text: '3 open slots found' },
+    { at: 2.24, text: 'Sent 3 time options' },
+    { at: 2.96, text: 'Client picked Thu, 3:00 PM' },
+    { at: 3.20, text: 'Call booked · Thu, 3:00 PM' },
+    { at: 3.62, text: 'Confirmation sent ✓' },
+  ],
+
+  // Story timing, in story units. Step N is reached at story = N - 1.
+  // Each pair is [start, end] of an eased transition.
+  story: {
+    typing:           [0.06, 0.50],  // client types on the phone
+    send:             [0.52, 0.64],  // message leaves the input and lands in the chat
+    receptionist:     [0.84, 0.96],  // Receptionist turns orange
+    handoff:          [1.04, 1.36],  // connector draws Receptionist → Scheduler
+    receptionistDone: [1.30, 1.42],
+    scheduler:        [1.34, 1.48],
+    calendarIn:       [1.28, 1.46],
+    scan:             [1.46, 1.94],  // calendar slots light up one by one
+    dotsIn:           [1.10, 1.22],  // phone typing dots
+    dotsOut:          [2.18, 2.26],
+    reply:            [2.22, 2.38],
+    chips:            [2.30, 2.56],  // three time chips, staggered inside this window
+    tap:              [2.58, 2.80],  // tap ripple on the picked chip
+    picked:           [2.76, 2.90],
+    schedulerDone:    [3.04, 3.18],
+    followUp:         [3.14, 3.28],
+    booked:           [3.28, 3.48],  // "Call booked ✓" card on the phone
+    notification:     [3.52, 3.74],  // banner slides down on the phone
+    followUpDone:     [3.58, 3.74],
+    summary:          [3.74, 3.94],  // "Booked in 42s" on the laptop
+  },
+
+  // Orange light pulses along the curve between devices
+  pulses: [
+    { window: [0.64, 0.90], to: 'laptop' },
+    { window: [2.00, 2.24], to: 'phone' },
+    { window: [2.84, 3.04], to: 'laptop' },
+  ],
+
+  intro: {
+    lidDuration:   1.6,   // s, lid opens closed → ~105° (power3.out)
+    phoneDelay:    0.25,
+    phoneDuration: 1.4,
+    screensOnAt:   0.9,   // s, screens fade on
+    screensOnFor:  0.9,
+    lidOpenAngle:  -0.26, // radians past vertical (≈105° open)
   },
 
   motion: {
-    follow: 0.07,            // how fast current eases to the scroll target (0..1 per 60fps frame)
-    mouseLerp: 0.05,         // mouse parallax smoothing
-    mouseMaxDeg: 3,          // max parallax rotation
-    floatAmp: 0.06,          // laptop bob height
-    floatSpeed: 0.8,
-    floatTilt: 0.012,        // tiny rotation while floating
-    scrub: 1.2,              // ScrollTrigger scrub smoothing (seconds)
+    follow:      0.075,   // current → target easing per 60fps frame (lower = silkier, slower)
+    storyFollow: 0.12,
+    scrub:       1.2,     // ScrollTrigger scrub smoothing, seconds
+    ease:        'sine.inOut',
+    mouseLerp:   0.05,
+    mouseMaxDeg: 3,
+    laptopFloat: { amp: 0.03, speed: 0.62, tilt: 0.006 },
+    phoneFloat:  { amp: 0.05, speed: 0.95, tilt: 0.014 },
   },
 
-  screen: {
-    width: 1024,
-    height: 640,
-    fps: 24,                 // texture redraw cap
-    typeCPS: 44,             // typing speed, characters per second
-    linePause: 0.12,         // extra pause at each newline (s)
-    blinkMs: 530,
-    powerOnDelay: 0.35,      // s after first frame before the screen wakes
-    powerOnDuration: 1.1,    // s of flicker + fade-up
-    finaleHold: 0.6,         // s the last snippet stays before the finale line
-    finaleText: "Let's build with Aiquor",
+  render: {
+    exposure: 1.1,
+    envIntensity: 0.45,
+    fov: 30,
+    minAspect: 1.25,        // narrower screens widen the fov so devices still fit
+    maxFov: 56,
+    maxPixelRatio: 2,
+    maxPixels: 4.2e6,       // cap on drawing-buffer pixels (keeps 4K/retina smooth)
+    minPixelRatio: 1,
+    slowFrameMs: 22,        // if average frame time is above this, resolution drops a step
+    screenFps: 30,
+    fogNear: 11,
+    fogFar: 24,
   },
 
   mobile: {
-    // Applies below 768px wide or on coarse-pointer devices.
-    particles: 400,
-    glass: 3,
+    // < 768px wide or coarse pointer
     maxPixelRatio: 1.5,
-    glassOpacity: 0.32,      // MeshStandardMaterial fallback (no transmission)
+    maxPixels: 1.8e6,
+    minPixelRatio: 0.75,
+    screenFps: 24,
+    phoneCanvas:  [420, 840],
+    laptopCanvas: [960, 600],
   },
 
-  // Layout: "wide" = desktop two-column hero (>= 900px), "stacked" otherwise.
+  desktopCanvas: { phone: [600, 1200], laptop: [1280, 800] },
+
   layout: {
-    wideMinWidth: 900,
-    stackedScale: 0.82,
+    wideMinWidth: 1024,   // matches the story-column CSS breakpoint
+    // When each step lands. Wide: as the section's top reaches 35% of the
+    // viewport. Stacked: as the section's bottom reaches 85%, so the step
+    // plays in the clear gap after the section's text.
+    wideAnchor: 0.35,
+    stackedAnchor: 0.85,
   },
 
   /* ---------------------------------------------------------------------------
-     Scenes, one per data-scene section, in order. The last one is the finale.
-     computer: position / rotation (radians) / scale of the laptop
-     camera:   position + lookAt
-     frame:    where the shot sits on screen. x/y shift the whole picture as a
-               fraction of the viewport (x 0.2 = 20% right of centre, y 0.2 =
-               20% lower). opacity fades the canvas so text stays readable.
-     glassDrift: multiplier for glass float amplitude/speed
-     particleY:  vertical offset of the particle field
-     code:       snippet typed on the screen when this section is entered
+     Camera keyframes, one per step (data-scene 1..5).
+     camera:  position + lookAt (world units)
+     laptop / phone: position + rotation (radians)
+     frame:   shifts the whole picture on screen without moving the camera.
+              x 0.22 = picture centre 22% right of the viewport centre,
+              y 0.2  = 20% lower. "wide" = desktop story column, "stacked" =
+              tablet/phone where text runs full width.
+     stackedZoom: camera distance multiplier on stacked layouts (< 1 = closer)
      ------------------------------------------------------------------------ */
-  scenes: [
+  steps: [
     {
-      name: 'hero: 3/4 front',
-      computer: { position: [0, 0, 0], rotation: [0, 0.24, 0], scale: 0.86 },
-      camera:   { position: [5.2, 3.5, 8.6], lookAt: [0.25, 0.95, 0] },
-      frame:    { wide: { x: 0.25, y: 0.04, opacity: 1 }, stacked: { x: 0.02, y: 0.22, opacity: 0.42 } },
-      glassDrift: 1,
-      particleY: 0,
-      code: [
-        '// aiquor.ts',
-        'import { Intelligence } from "@aiquor/core";',
-        '',
-        'const aiquor = new Intelligence({ craft: true });',
-        '',
-        'aiquor.learn("how your team works");',
-      ],
+      name: '1 · wide 3/4, both devices',
+      camera: { position: [3.6, 3.1, 10.4], lookAt: [0.45, 0.85, 0] },
+      laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.2, 0] },
+      phone:  { position: [-1.3, 0.95, 1.05], rotation: [-0.08, 0.5, 0.02] },
+      frame:  { wide: { x: 0.25, y: 0.02 }, stacked: { x: 0, y: 0.25 } },
+      stackedZoom: 1,
     },
     {
-      name: 'services: low side angle',
-      computer: { position: [0.3, 0, -0.2], rotation: [0, 0.95, 0], scale: 0.7 },
-      camera:   { position: [7.6, 0.8, 3.2], lookAt: [0, 0.85, 0] },
-      frame:    { wide: { x: 0.36, y: 0.06, opacity: 0.5 }, stacked: { x: 0.3, y: 0.16, opacity: 0.24 } },
-      glassDrift: 1.5,
-      particleY: 1.6,
-      code: [
-        '// agents that take the busywork',
-        'const agent = aiquor.agent("triage", {',
-        '  tools: [inbox, slack, crm],',
-        '  human: "in the loop",',
-        '});',
-        '',
-        'await agent.run();',
-      ],
+      name: '2 · glide to the phone (client types)',
+      camera: { position: [-0.45, 1.25, 5.0], lookAt: [-1.2, 0.98, 1.05] },
+      laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.2, 0] },
+      phone:  { position: [-1.3, 0.98, 1.05], rotation: [-0.04, 0.16, 0] },
+      frame:  { wide: { x: 0.24, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 0.78,
     },
     {
-      name: 'about: top-down overview',
-      computer: { position: [0, 0, 0], rotation: [0, -0.4, 0], scale: 0.62 },
-      camera:   { position: [1.4, 10.5, 4.2], lookAt: [0, 0.2, 0] },
-      frame:    { wide: { x: 0.37, y: 0.02, opacity: 0.5 }, stacked: { x: 0.3, y: 0.14, opacity: 0.24 } },
-      glassDrift: 0.7,
-      particleY: 3.4,
-      code: [
-        '// secure from day one',
-        'mcp.server("inventory", {',
-        '  auth: "scoped",',
-        '  audit: true,',
-        '  secrets: vault.ref("db"),',
-        '});',
-      ],
+      name: '3 · swing to the laptop dashboard',
+      camera: { position: [1.3, 2.0, 6.1], lookAt: [1.0, 0.98, -1.3] },
+      laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.04, 0] },
+      phone:  { position: [-4.6, 0.9, -1.4], rotation: [-0.06, 0.7, 0.02] },
+      frame:  { wide: { x: 0.31, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 0.94,
     },
     {
-      name: 'finale: faces viewer, centred right',
-      computer: { position: [0, 0, 0], rotation: [0, -0.04, 0], scale: 0.74 },
-      camera:   { position: [0.9, 1.7, 8.4], lookAt: [0.1, 1.05, 0] },
-      frame:    { wide: { x: 0.27, y: -0.15, opacity: 0.85 }, stacked: { x: 0.02, y: 0.12, opacity: 0.35 } },
-      glassDrift: 0.9,
-      particleY: 5,
-      code: [
-        'deploy({ docs: true, owner: "you" });',
-      ],
-      finale: true,
+      name: '4 · back to the phone (slot picked)',
+      camera: { position: [-2.15, 1.45, 4.75], lookAt: [-1.15, 0.98, 1.0] },
+      laptop: { position: [0.9, 0, -0.25], rotation: [0, -0.12, 0] },
+      phone:  { position: [-1.3, 0.98, 1.05], rotation: [-0.04, -0.24, 0] },
+      frame:  { wide: { x: 0.24, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 0.78,
+    },
+    {
+      name: '5 · pull back, side by side',
+      camera: { position: [0.4, 1.75, 10.6], lookAt: [0.35, 0.88, 0] },
+      laptop: { position: [0.8, 0, -0.3], rotation: [0, 0, 0] },
+      phone:  { position: [-1.3, 0.95, 0.5], rotation: [-0.04, 0.05, 0] },
+      frame:  { wide: { x: 0.27, y: 0.0 }, stacked: { x: 0, y: 0.02 } },
+      stackedZoom: 1,
     },
   ],
 };
 
 /* -----------------------------------------------------------------------------
-   Environment checks
+   Environment
    -------------------------------------------------------------------------- */
 const root = document.documentElement;
 const wrap = document.querySelector('.hero3d');
 const canvas = document.getElementById('hero3d-canvas');
+const STORY_MAX = 4;
 
 const mqReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 const mqFinePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 const mqCoarse = window.matchMedia('(pointer: coarse)');
-
 const isMobileTier = () => window.innerWidth < 768 || mqCoarse.matches;
 const layoutMode = () => (window.innerWidth >= CONFIG.layout.wideMinWidth ? 'wide' : 'stacked');
 
 function fail() {
-  root.classList.remove('hero3d-on');
+  root.classList.remove('hero3d-on', 'hero3d-ready');
   root.classList.add('hero3d-fallback');
 }
 
 /* -----------------------------------------------------------------------------
-   Small helpers
+   Math helpers
    -------------------------------------------------------------------------- */
 const lerp = (a, b, t) => a + (b - a) * t;
-const clamp01 = (v) => Math.min(1, Math.max(0, v));
-// Frame-rate independent lerp factor: `k` is the factor at 60fps.
-const damp = (k, dt) => 1 - Math.pow(1 - k, dt * 60);
-const smoothstep = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const damp = (k, dt) => 1 - Math.pow(1 - k, dt * 60);       // frame-rate independent lerp factor
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeOut3 = (x) => 1 - Math.pow(1 - x, 3);
+const lin = (s, w) => clamp01((s - w[0]) / (w[1] - w[0]));     // linear 0..1 inside a window
+const win = (s, w) => easeInOut(lin(s, w));                    // eased 0..1 inside a window
+const bump = (x) => Math.sin(Math.PI * clamp01(x));            // 0 → 1 → 0
 
 function debounce(fn, ms) {
   let id;
-  return (...args) => { clearTimeout(id); id = setTimeout(() => fn(...args), ms); };
+  return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); };
 }
 
-// Flatten a scene keyframe into the plain numbers GSAP tweens.
-function flatKeyframe(scene, mode) {
-  const c = scene.computer, cam = scene.camera, f = scene.frame[mode];
-  return {
-    cx: c.position[0], cy: c.position[1], cz: c.position[2],
-    rx: c.rotation[0], ry: c.rotation[1], rz: c.rotation[2],
-    s: c.scale,
-    px: cam.position[0], py: cam.position[1], pz: cam.position[2],
-    lx: cam.lookAt[0], ly: cam.lookAt[1], lz: cam.lookAt[2],
-    fx: f.x, fy: f.y, op: f.opacity,
-    glass: scene.glassDrift,
-    particles: scene.particleY,
-    progress: 0,
-  };
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
-
-// Map N sections onto the configured scenes. The last section always gets the
-// finale; extra middle sections reuse the closest middle keyframe.
-function scenesFor(count) {
-  const list = CONFIG.scenes;
-  if (count <= 1) return [list[0]];
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    if (i === count - 1) out.push(list[list.length - 1]);
-    else out.push(list[Math.min(i, list.length - 2)]);
-  }
-  return out;
+function mixHex(a, b, t) {
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return `rgb(${Math.round(lerp(A[0], B[0], t))},${Math.round(lerp(A[1], B[1], t))},${Math.round(lerp(A[2], B[2], t))})`;
 }
 
 /* -----------------------------------------------------------------------------
-   Textures generated on a canvas (no image requests)
+   2D canvas helpers (screens)
+   -------------------------------------------------------------------------- */
+function rr(ctx, x, y, w, h, r) {
+  const [tl, tr, br, bl] = Array.isArray(r) ? r : [r, r, r, r];
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.arcTo(x + w, y, x + w, y + h, tr);
+  ctx.arcTo(x + w, y + h, x, y + h, br);
+  ctx.arcTo(x, y + h, x, y, bl);
+  ctx.arcTo(x, y, x + w, y, tl);
+  ctx.closePath();
+}
+
+// Cheap soft shadow: a few offset translucent fills (shadowBlur is slow).
+function softShadow(ctx, x, y, w, h, r, strength = 1) {
+  for (let i = 3; i >= 1; i--) {
+    ctx.fillStyle = `rgba(31,77,63,${0.035 * strength})`;
+    rr(ctx, x - i, y + i * 1.6, w + i * 2, h + i, r + i);
+    ctx.fill();
+  }
+}
+
+const font = (weight, size) => `${weight} ${size}px ${CONFIG.ui.font}`;
+
+const wrapCache = new Map();
+function wrapText(ctx, text, maxW) {
+  const key = ctx.font + '|' + maxW + '|' + text;
+  if (wrapCache.has(key)) return wrapCache.get(key);
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  wrapCache.set(key, lines);
+  return lines;
+}
+
+function checkMark(ctx, cx, cy, size, color, width) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.45, cy + size * 0.02);
+  ctx.lineTo(cx - size * 0.12, cy + size * 0.32);
+  ctx.lineTo(cx + size * 0.48, cy - size * 0.3);
+  ctx.stroke();
+}
+
+/* -----------------------------------------------------------------------------
+   Screen: a CanvasTexture redrawn from (story, time)
+   -------------------------------------------------------------------------- */
+class Screen {
+  constructor({ size, base, draw, mipmaps, anisotropy, fps }) {
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = size[0];
+    this.canvas.height = size[1];
+    this.ctx = this.canvas.getContext('2d');
+    this.scale = size[0] / base[0];
+    this.draw = draw;
+    this.interval = 1 / fps;
+    this.fps = fps;
+    this.texture = new THREE.CanvasTexture(this.canvas);
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.texture.anisotropy = anisotropy;
+    this.texture.generateMipmaps = mipmaps;
+    this.texture.minFilter = mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+    this.key = '';
+    this.last = -1;
+    this.live = true;
+  }
+
+  // Redraws only when the story moved or a live detail ticked, capped at fps.
+  update(story, time, force = false) {
+    if (!force && time - this.last < this.interval) return;
+    const key = Math.round(story * 500) + ':' + (this.live ? Math.floor(time * this.fps) : 0);
+    if (!force && key === this.key) return;
+    this.key = key;
+    this.last = time;
+    const ctx = this.ctx;
+    ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    this.live = this.draw(ctx, story, time);
+    this.texture.needsUpdate = true;
+  }
+
+  dispose() { this.texture.dispose(); }
+}
+
+/* -----------------------------------------------------------------------------
+   PHONE UI (base 600 × 1200)
+   -------------------------------------------------------------------------- */
+function drawPhone(ctx, s, t) {
+  const U = CONFIG.ui, C = CONFIG.chat, S = CONFIG.story;
+  const W = 600;
+  let live = false;
+
+  ctx.fillStyle = U.bg;
+  ctx.fillRect(0, 0, W, 1200);
+
+  // Status bar
+  ctx.fillStyle = U.text;
+  ctx.font = font(600, 22);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('9:41', 44, 38);
+  for (let i = 0; i < 4; i++) { rr(ctx, 452 + i * 10, 44 - (i + 1) * 4.5, 6, (i + 1) * 4.5, 2); ctx.fill(); }
+  rr(ctx, 500, 28, 44, 21, 6); ctx.lineWidth = 2; ctx.strokeStyle = U.text; ctx.stroke();
+  rr(ctx, 504, 32, 30, 13, 3); ctx.fill();
+
+  // Header: avatar, name, online dot
+  ctx.fillStyle = U.text;
+  ctx.beginPath(); ctx.arc(84, 122, 36, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = U.bg;
+  ctx.font = font(600, 30);
+  ctx.textAlign = 'center';
+  ctx.fillText('A', 84, 123);
+  ctx.beginPath(); ctx.arc(84, 122, 36, -0.6, 0.6); ctx.lineWidth = 3; ctx.strokeStyle = U.accent; ctx.stroke();
+  ctx.fillStyle = U.bg; ctx.beginPath(); ctx.arc(110, 150, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = U.online; ctx.beginPath(); ctx.arc(110, 150, 7.5, 0, Math.PI * 2); ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = U.text;
+  ctx.font = font(600, 29);
+  ctx.fillText(C.appName, 140, 108);
+  ctx.fillStyle = U.muted;
+  ctx.font = font(400, 20);
+  ctx.fillText(C.status, 140, 142);
+  ctx.fillStyle = U.line;
+  ctx.fillRect(0, 186, W, 2);
+
+  // ----- Chat -----
+  const top = 190, bottom = 1060, gap = 18;
+  const bubbleFont = font(400, 25), lineH = 34, padX = 24, padY = 18, maxText = 392;
+
+  const bubbleSize = (text) => {
+    ctx.font = bubbleFont;
+    const lines = wrapText(ctx, text, maxText);
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + padX * 2;
+    return { lines, w, h: lines.length * lineH + padY * 2 };
+  };
+
+  const drawBubble = (text, y, side) => {
+    const b = bubbleSize(text);
+    const x = side === 'left' ? 32 : W - 32 - b.w;
+    const r = side === 'left' ? [8, 26, 26, 26] : [26, 8, 26, 26];
+    if (side === 'left') { softShadow(ctx, x, y, b.w, b.h, 24); ctx.fillStyle = U.surface; }
+    else ctx.fillStyle = U.text;
+    rr(ctx, x, y, b.w, b.h, r);
+    ctx.fill();
+    ctx.fillStyle = side === 'left' ? U.text : U.bg;
+    ctx.font = bubbleFont;
+    ctx.textAlign = 'left';
+    b.lines.forEach((l, i) => ctx.fillText(l, x + padX, y + padY + lineH * i + lineH / 2));
+  };
+
+  const items = [];
+  // 1. greeting
+  items.push({ a: 1, h: bubbleSize(C.greeting).h, draw: (y) => drawBubble(C.greeting, y, 'left') });
+  // 2. client message lands
+  items.push({ a: win(s, S.send), h: bubbleSize(C.clientMessage).h, draw: (y) => drawBubble(C.clientMessage, y, 'right') });
+  // 3. typing dots
+  const dots = win(s, S.dotsIn) * (1 - win(s, S.dotsOut));
+  if (dots > 0.01) live = true;
+  items.push({
+    a: dots, h: 66,
+    draw: (y) => {
+      softShadow(ctx, 32, y, 108, 66, 24);
+      ctx.fillStyle = U.surface; rr(ctx, 32, y, 108, 66, [8, 26, 26, 26]); ctx.fill();
+      for (let i = 0; i < 3; i++) {
+        const p = 0.5 + 0.5 * Math.sin(t * 6 - i * 0.8);
+        ctx.fillStyle = mixHex(U.idle, U.text, p);
+        ctx.beginPath(); ctx.arc(62 + i * 24, y + 33 - p * 5, 7, 0, Math.PI * 2); ctx.fill();
+      }
+    },
+  });
+  // 4. reply
+  items.push({ a: win(s, S.reply), h: bubbleSize(C.reply).h, draw: (y) => drawBubble(C.reply, y, 'left') });
+  // 5. time chips
+  const chipsIn = lin(s, S.chips);
+  const tap = lin(s, S.tap);
+  const chipH = 62, chipGap = 12, chipW = 300;
+  items.push({
+    a: easeInOut(clamp01(chipsIn * 3)), h: C.slots.length * (chipH + chipGap) - chipGap,
+    draw: (y) => {
+      const outer = ctx.globalAlpha;
+      C.slots.forEach((label, i) => {
+        const ca = easeInOut(clamp01(chipsIn * 1.6 - i * 0.3));
+        if (ca <= 0) return;
+        const cy = y + i * (chipH + chipGap) + (1 - ca) * 14;
+        const x = 32;
+        const selected = i === C.pick ? easeInOut(clamp01((tap - 0.35) / 0.4)) : 0;
+        ctx.globalAlpha = outer * ca;
+        ctx.fillStyle = selected > 0 ? mixHex('#FFFFFF', U.accent, selected) : U.surface;
+        rr(ctx, x, cy, chipW, chipH, 31); ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = selected > 0.5 ? U.accent : 'rgba(31,77,63,0.28)';
+        rr(ctx, x + 1, cy + 1, chipW - 2, chipH - 2, 30); ctx.stroke();
+        // tap ripple
+        if (i === C.pick && tap > 0 && tap < 1) {
+          ctx.save();
+          rr(ctx, x, cy, chipW, chipH, 31); ctx.clip();
+          ctx.fillStyle = `rgba(232,151,58,${0.35 * (1 - tap)})`;
+          ctx.beginPath(); ctx.arc(x + chipW * 0.62, cy + chipH / 2, 20 + easeOut3(tap) * 190, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+        ctx.fillStyle = selected > 0.5 ? '#FFFFFF' : U.text;
+        ctx.font = font(600, 23);
+        ctx.textAlign = 'center';
+        ctx.fillText(label, x + chipW / 2, cy + chipH / 2 + 1);
+      });
+      ctx.globalAlpha = outer;
+    },
+  });
+  // 6. picked message
+  items.push({ a: win(s, S.picked), h: bubbleSize(C.pickedMessage).h, draw: (y) => drawBubble(C.pickedMessage, y, 'right') });
+  // 7. booked card
+  items.push({
+    a: win(s, S.booked), h: 196,
+    draw: (y) => {
+      const x = 32, w = 452, h = 196;
+      softShadow(ctx, x, y, w, h, 26, 1.4);
+      ctx.fillStyle = U.surface; rr(ctx, x, y, w, h, 26); ctx.fill();
+      ctx.fillStyle = U.success; rr(ctx, x, y, 8, h, [26, 0, 0, 26]); ctx.fill();
+      ctx.fillStyle = 'rgba(47,138,95,0.12)';
+      ctx.beginPath(); ctx.arc(x + 62, y + 62, 32, 0, Math.PI * 2); ctx.fill();
+      checkMark(ctx, x + 62, y + 62, 30, U.success, 5);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = U.text; ctx.font = font(600, 29); ctx.fillText(C.bookedTitle, x + 112, y + 50);
+      ctx.fillStyle = U.muted; ctx.font = font(400, 22); ctx.fillText(C.bookedDetail, x + 112, y + 84);
+      ctx.fillStyle = U.line; ctx.fillRect(x + 28, y + 122, w - 56, 2);
+      ctx.fillStyle = U.muted; ctx.font = font(400, 20); ctx.fillText(C.bookedNote, x + 28, y + 160);
+      ctx.fillStyle = U.accent; ctx.font = font(600, 20); ctx.textAlign = 'right'; ctx.fillText('Add to calendar', x + w - 28, y + 160);
+    },
+  });
+
+  // Heights grow with each item's appear value, so the list (and its scroll)
+  // moves smoothly in both directions.
+  let total = 20;
+  for (const it of items) total += (it.h + gap) * it.a;
+  const offset = Math.max(0, total - (bottom - top) + 10);
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
+  let y = top + 20 - offset;
+  for (const it of items) {
+    if (it.a > 0.002) {
+      ctx.globalAlpha = it.a;
+      it.draw(y + (1 - it.a) * 22);
+      ctx.globalAlpha = 1;
+    }
+    y += (it.h + gap) * it.a;
+  }
+  ctx.restore();
+
+  // ----- Input bar: the client types here, then it sends -----
+  const typed = lin(s, S.typing);
+  const inputFade = 1 - win(s, S.send);
+  ctx.fillStyle = U.line; ctx.fillRect(0, 1060, W, 2);
+  softShadow(ctx, 28, 1084, 466, 76, 38);
+  ctx.fillStyle = U.surface; rr(ctx, 28, 1084, 466, 76, 38); ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.font = font(400, 24);
+  const n = Math.round(C.clientMessage.length * typed);
+  if (n > 0 && inputFade > 0.01) {
+    let text = C.clientMessage.slice(0, n);
+    const maxW = 400;
+    if (ctx.measureText(text).width > maxW) {
+      while (text.length && ctx.measureText('…' + text).width > maxW) text = text.slice(1);
+      text = '…' + text;
+    }
+    ctx.globalAlpha = inputFade;
+    ctx.fillStyle = U.text;
+    ctx.fillText(text, 58, 1123);
+    const cursorOn = typed < 1 || Math.floor(t * 1.9) % 2 === 0;
+    if (cursorOn) { ctx.fillStyle = U.accent; ctx.fillRect(58 + ctx.measureText(text).width + 3, 1106, 3, 34); }
+    ctx.globalAlpha = 1;
+    live = true;
+  } else {
+    ctx.fillStyle = U.muted;
+    ctx.fillText(C.placeholder, 58, 1123);
+  }
+  // send button presses as the message sends
+  const press = bump(lin(s, [S.send[0] - 0.04, S.send[0] + 0.08]));
+  ctx.fillStyle = U.accent;
+  ctx.beginPath(); ctx.arc(546, 1122, 38 * (1 - press * 0.12), 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(532, 1122); ctx.lineTo(560, 1122); ctx.moveTo(548, 1110); ctx.lineTo(560, 1122); ctx.lineTo(548, 1134); ctx.stroke();
+
+  // ----- Notification banner slides down -----
+  const nb = win(s, S.notification);
+  if (nb > 0.002) {
+    const by = lerp(-150, 24, easeOut3(nb));
+    ctx.globalAlpha = nb;
+    softShadow(ctx, 20, by, 560, 118, 28, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.98)'; rr(ctx, 20, by, 560, 118, 28); ctx.fill();
+    ctx.fillStyle = U.text; rr(ctx, 42, by + 26, 64, 64, 16); ctx.fill();
+    ctx.fillStyle = U.bg; ctx.font = font(600, 28); ctx.textAlign = 'center'; ctx.fillText('A', 74, by + 59);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = U.text; ctx.font = font(600, 22); ctx.fillText(C.notifyTitle, 126, by + 44);
+    ctx.fillStyle = U.muted; ctx.font = font(400, 19); ctx.textAlign = 'right'; ctx.fillText('now', 552, by + 44);
+    ctx.textAlign = 'left'; ctx.fillStyle = U.text; ctx.font = font(400, 22); ctx.fillText(C.notifyBody, 126, by + 80);
+    ctx.globalAlpha = 1;
+  }
+
+  return live;
+}
+
+/* -----------------------------------------------------------------------------
+   LAPTOP UI (base 1280 × 800)
+   -------------------------------------------------------------------------- */
+function agentState(s, i) {
+  const S = CONFIG.story;
+  const on = [S.receptionist, S.scheduler, S.followUp][i];
+  const off = [S.receptionistDone, S.schedulerDone, S.followUpDone][i];
+  const done = win(s, off);
+  return { working: win(s, on) * (1 - done), done };
+}
+
+function drawLaptop(ctx, s, t) {
+  const U = CONFIG.ui, D = CONFIG.dashboard, S = CONFIG.story;
+  const W = 1280;
+  let live = false;
+
+  ctx.fillStyle = U.bg;
+  ctx.fillRect(0, 0, W, 800);
+
+  // Window bar
+  ctx.fillStyle = U.surfaceAlt;
+  ctx.fillRect(0, 0, W, 44);
+  ['#E8973A', '#C9BFAE', '#C9BFAE'].forEach((c, i) => {
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(28 + i * 22, 22, 7, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = U.muted; ctx.font = font(500, 16); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('agents.aiquor.app', W / 2, 23);
+
+  // Header
+  ctx.textAlign = 'left';
+  ctx.fillStyle = U.text; ctx.font = font(600, 34); ctx.fillText(D.title, 48, 84);
+  ctx.fillStyle = U.muted; ctx.font = font(400, 18); ctx.fillText(D.subtitle, 48, 118);
+  ctx.font = font(600, 16);
+  const pillW = ctx.measureText(D.online).width + 52;
+  ctx.fillStyle = 'rgba(59,178,115,0.12)'; rr(ctx, 832 - pillW, 66, pillW, 38, 19); ctx.fill();
+  ctx.fillStyle = U.online; ctx.beginPath(); ctx.arc(832 - pillW + 22, 85, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = U.text; ctx.fillText(D.online, 832 - pillW + 36, 86);
+
+  // Agent cards
+  const cardY = 146, cardW = 240, cardH = 196, cardGap = 32;
+  const states = D.agents.map((_, i) => agentState(s, i));
+  D.agents.forEach((ag, i) => {
+    const x = 48 + i * (cardW + cardGap);
+    const st = states[i];
+    softShadow(ctx, x, cardY, cardW, cardH, 20, 1.2);
+    ctx.fillStyle = U.surface; rr(ctx, x, cardY, cardW, cardH, 20); ctx.fill();
+    if (st.working > 0.01) {
+      ctx.globalAlpha = st.working;
+      ctx.lineWidth = 3; ctx.strokeStyle = U.accent;
+      rr(ctx, x + 1.5, cardY + 1.5, cardW - 3, cardH - 3, 19); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = U.text; rr(ctx, x + 22, cardY + 22, 48, 48, 14); ctx.fill();
+    ctx.fillStyle = U.bg; ctx.font = font(600, 22); ctx.textAlign = 'center'; ctx.fillText(ag.initial, x + 46, cardY + 47);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = U.text; ctx.font = font(600, 20); ctx.fillText(ag.name, x + 22, cardY + 98);
+    ctx.fillStyle = U.muted; ctx.font = font(400, 15); ctx.fillText(ag.role, x + 22, cardY + 124);
+
+    // status: idle grey → working orange (pulse ring) → done green check
+    const sy = cardY + 162, sx = x + 32;
+    const dotColor = st.done > 0.5 ? mixHex(U.accent, U.success, clamp01(st.done * 2 - 1))
+                                   : mixHex(U.idle, U.accent, clamp01(st.working * 2));
+    if (st.working > 0.3) {
+      live = true;
+      const ph = (t * 0.9) % 1;
+      ctx.fillStyle = `rgba(232,151,58,${0.35 * (1 - ph) * st.working})`;
+      ctx.beginPath(); ctx.arc(sx, sy, 8 + ph * 14, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = dotColor;
+    ctx.beginPath(); ctx.arc(sx, sy, 8 + st.done * 5, 0, Math.PI * 2); ctx.fill();
+    if (st.done > 0.05) {
+      ctx.globalAlpha = st.done;
+      checkMark(ctx, sx, sy, 11, '#FFFFFF', 2.6);
+      ctx.globalAlpha = 1;
+    }
+    const label = st.done > 0.5 ? 'Done' : st.working > 0.5 ? 'Working…' : 'Idle';
+    ctx.fillStyle = st.working > 0.5 ? U.accent : st.done > 0.5 ? U.success : U.muted;
+    ctx.font = font(600, 16);
+    ctx.fillText(label, sx + 22, sy + 1);
+  });
+
+  // Handoff connector: Receptionist → Scheduler, curving under the cards
+  const ho = win(s, S.handoff);
+  if (ho > 0.002) {
+    const x0 = 48 + cardW / 2, x1 = 48 + cardW + cardGap + cardW / 2, y0 = cardY + cardH;
+    const pts = [];
+    for (let i = 0; i <= 40; i++) {
+      const u = i / 40;
+      pts.push([
+        (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * ((x0 + x1) / 2) + u * u * x1,
+        (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * (y0 + 52) + u * u * y0,
+      ]);
+    }
+    const nPts = Math.max(1, Math.round(ho * 40));
+    ctx.strokeStyle = U.accent; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.globalAlpha = lerp(1, 0.45, win(s, [S.scheduler[1], S.scheduler[1] + 0.2]));
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i <= nPts; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+    ctx.fillStyle = U.accent; ctx.beginPath(); ctx.arc(pts[nPts][0], pts[nPts][1], 6, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Calendar panel
+  const px = 48, py = 380, pw = 784, ph = 372;
+  softShadow(ctx, px, py, pw, ph, 20, 1.2);
+  ctx.fillStyle = U.surface; rr(ctx, px, py, pw, ph, 20); ctx.fill();
+  ctx.fillStyle = U.text; ctx.font = font(600, 20); ctx.textAlign = 'left';
+  ctx.fillText(D.calendarTitle, px + 28, py + 38);
+
+  const calIn = win(s, S.calendarIn);
+  if (calIn < 1) {
+    ctx.globalAlpha = 1 - calIn;
+    ctx.fillStyle = U.muted; ctx.font = font(400, 18); ctx.textAlign = 'center';
+    ctx.fillText(D.calendarIdle, px + pw / 2, py + ph / 2 + 10);
+    ctx.globalAlpha = 1;
+  }
+  if (calIn > 0.002) {
+    ctx.globalAlpha = calIn;
+    const gx = px + 110, gy = py + 92, cw = 128, ch = 62;
+    ctx.font = font(600, 15); ctx.textAlign = 'center'; ctx.fillStyle = U.muted;
+    D.days.forEach((d, i) => ctx.fillText(d, gx + i * cw + cw / 2, gy - 18));
+    ctx.textAlign = 'right';
+    D.times.forEach((tm, j) => ctx.fillText(tm, gx - 18, gy + j * ch + ch / 2));
+    const scan = lin(s, S.scan);
+    const scanned = scan * D.days.length * D.times.length;
+    const pickSel = win(s, S.picked);
+    for (let j = 0; j < D.times.length; j++) {
+      for (let d = 0; d < D.days.length; d++) {
+        const idx = j * D.days.length + d;
+        const cx = gx + d * cw + 5, cy = gy + j * ch + 5, w = cw - 10, h = ch - 10;
+        const seen = clamp01(scanned - idx);
+        const open = D.openSlots.findIndex(([od, oj]) => od === d && oj === j);
+        let fill = open >= 0 ? mixHex('#F5F1E8', '#DDEFE4', seen) : mixHex('#F5F1E8', '#E7E1D4', seen);
+        if (open === CONFIG.chat.pick && pickSel > 0) fill = mixHex('#DDEFE4', U.accent, pickSel);
+        ctx.fillStyle = fill; rr(ctx, cx, cy, w, h, 12); ctx.fill();
+        const cur = scanned - idx;
+        if (cur > 0 && cur < 1 && scan < 1) {
+          ctx.strokeStyle = `rgba(232,151,58,${0.9 * bump(cur)})`; ctx.lineWidth = 3;
+          rr(ctx, cx + 1.5, cy + 1.5, w - 3, h - 3, 11); ctx.stroke();
+        }
+        if (open >= 0 && seen > 0.5) {
+          ctx.globalAlpha = calIn * clamp01(seen * 2 - 1);
+          const sel = open === CONFIG.chat.pick ? pickSel : 0;
+          ctx.fillStyle = sel > 0.5 ? '#FFFFFF' : U.success;
+          ctx.font = font(600, 15); ctx.textAlign = 'center';
+          ctx.fillText(sel > 0.5 ? 'Booked' : 'Open', cx + w / 2, cy + h / 2 + 1);
+          ctx.globalAlpha = calIn;
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Summary banner (finale)
+  const sm = win(s, S.summary);
+  if (sm > 0.002) {
+    const by = py + ph - 86 + (1 - sm) * 24;
+    ctx.globalAlpha = sm;
+    ctx.fillStyle = U.text; rr(ctx, px + 20, by, pw - 40, 66, 16); ctx.fill();
+    ctx.fillStyle = U.accent; ctx.beginPath(); ctx.arc(px + 58, by + 33, 17, 0, Math.PI * 2); ctx.fill();
+    checkMark(ctx, px + 58, by + 33, 16, '#FFFFFF', 3);
+    ctx.fillStyle = U.bg; ctx.font = font(600, 22); ctx.textAlign = 'left';
+    ctx.fillText(D.summary, px + 90, by + 34);
+    ctx.globalAlpha = 1;
+  }
+
+  // Live activity log
+  const lx = 864, ly = 146, lw = 368, lh = 606;
+  softShadow(ctx, lx, ly, lw, lh, 20, 1.2);
+  ctx.fillStyle = U.surface; rr(ctx, lx, ly, lw, lh, 20); ctx.fill();
+  ctx.fillStyle = U.text; ctx.font = font(600, 20); ctx.textAlign = 'left';
+  ctx.fillText(D.logTitle, lx + 28, ly + 40);
+  const anyWorking = states.some((st) => st.working > 0.3);
+  if (anyWorking) live = true;
+  ctx.fillStyle = anyWorking ? `rgba(232,151,58,${0.55 + 0.45 * Math.sin(t * 4)})` : U.online;
+  ctx.beginPath(); ctx.arc(lx + lw - 34, ly + 40, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = U.line; ctx.fillRect(lx + 28, ly + 68, lw - 56, 2);
+
+  const entries = CONFIG.log.map((e) => ({ ...e, a: win(s, [e.at, e.at + 0.06]) }));
+  if (entries[0].a < 1) {
+    ctx.globalAlpha = 1 - entries[0].a;
+    ctx.fillStyle = U.muted; ctx.font = font(400, 17);
+    ctx.fillText(D.logIdle, lx + 28, ly + 108);
+    ctx.globalAlpha = 1;
+  }
+  entries.forEach((e, i) => {
+    if (e.a <= 0.002) return;
+    const ey = ly + 104 + i * 50;
+    const ex = lx + 28 + (1 - e.a) * 16;
+    ctx.globalAlpha = e.a;
+    ctx.fillStyle = /✓|booked/i.test(e.text) ? U.success : U.accent;
+    ctx.beginPath(); ctx.arc(ex + 5, ey, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = U.muted; ctx.font = font(500, 14);
+    ctx.fillText(`09:41:${String(2 + i * 4).padStart(2, '0')}`, ex + 20, ey + 1);
+    ctx.fillStyle = U.text; ctx.font = font(500, 16);
+    ctx.fillText(e.text, ex + 96, ey + 1);
+    ctx.globalAlpha = 1;
+  });
+
+  return live;
+}
+
+/* -----------------------------------------------------------------------------
+   Generated textures and shapes
    -------------------------------------------------------------------------- */
 function radialTexture(size, stops) {
   const c = document.createElement('canvas');
@@ -290,486 +832,179 @@ function radialTexture(size, stops) {
   return tex;
 }
 
-/* -----------------------------------------------------------------------------
-   Screen: code typing on a CanvasTexture
-   -------------------------------------------------------------------------- */
-const KEYWORDS = /^(const|let|var|new|await|async|return|import|from|export|function|if|else|true|false|null)$/;
-
-function tokenize(line) {
-  const tokens = [];
-  const re = /(\/\/.*$)|("(?:[^"\\]|\\.)*"?)|(\d+(?:\.\d+)?)|([A-Za-z_$][\w$]*)|(\s+)|([^\sA-Za-z_$\d"]+)/g;
-  const col = CONFIG.colors.code;
-  let m;
-  while ((m = re.exec(line))) {
-    const [text, comment, str, num, word] = m;
-    let color = col.text;
-    if (comment) color = col.comment;
-    else if (str) color = col.string;
-    else if (num) color = col.number;
-    else if (word) {
-      if (KEYWORDS.test(word)) color = col.keyword;
-      else if (line[re.lastIndex] === '(') color = col.fn;
+// Mobile keyboard: one textured plane instead of 70 keys.
+function keyboardTexture() {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 352;
+  const g = c.getContext('2d');
+  g.fillStyle = '#17241d';               // dark gaps between keys
+  g.fillRect(0, 0, c.width, c.height);
+  const cols = 14, rows = 5, pw = c.width / cols, ph = c.height / rows;
+  g.fillStyle = CONFIG.colors.deviceDeep;
+  for (let r = 0; r < rows; r++) {
+    for (let k = 0; k < cols; k++) {
+      if (r === rows - 1 && k >= 4 && k <= 9) continue;
+      rr(g, k * pw + 5, r * ph + 5, pw - 10, ph - 10, 9); g.fill();
     }
-    tokens.push({ text, color });
   }
-  return tokens;
+  rr(g, 4 * pw + 5, 4 * ph + 5, pw * 6 - 10, ph - 10, 9); g.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
-class CodeScreen {
-  constructor() {
-    const { width, height } = CONFIG.screen;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.ctx = this.canvas.getContext('2d');
-    this.texture = new THREE.CanvasTexture(this.canvas);
-    this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.anisotropy = 4;
+function roundedRectShape(w, h, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
 
-    this.font = '500 30px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
-    this.bigFont = '600 54px ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
-    this.ctx.font = this.font;
-    this.charW = this.ctx.measureText('M').width;
-
-    this.lines = [];
-    this.schedule = [];
-    this.total = 0;
-    this.start = 0;
-    this.mode = 'code';        // 'code' | 'finale'
-    this.finalePending = false;
-    this.lastDraw = -1;
-    this.lastKey = '';
-  }
-
-  // Start typing a snippet at time `now` (seconds).
-  setSnippet(lines, now, { finale = false, instant = false } = {}) {
-    this.mode = 'code';
-    this.lines = lines.map(tokenize);
-    this.raw = lines;
-    this.finalePending = finale;
-    this.buildSchedule(lines.join('\n'));
-    this.start = instant ? now - this.duration - 10 : now;
-    this.lastKey = '';
-  }
-
-  setFinale(now, instant = false) {
-    this.mode = 'finale';
-    this.finalePending = false;
-    this.buildSchedule(CONFIG.screen.finaleText);
-    this.start = instant ? now - this.duration - 10 : now;
-    this.lastKey = '';
-  }
-
-  buildSchedule(text) {
-    const { typeCPS, linePause } = CONFIG.screen;
-    this.schedule = [];
-    let t = 0;
-    for (const ch of text) {
-      t += 1 / typeCPS + (ch === '\n' ? linePause : 0);
-      this.schedule.push(t);
-    }
-    this.total = text.length;
-    this.duration = t;
-  }
-
-  typedCount(now) {
-    const e = now - this.start;
-    if (e >= this.duration) return this.total;
-    let lo = 0, hi = this.schedule.length;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (this.schedule[mid] <= e) lo = mid + 1; else hi = mid; }
-    return lo;
-  }
-
-  // Returns true when the texture was redrawn.
-  update(now, force = false) {
-    if (this.finalePending && now - this.start > this.duration + CONFIG.screen.finaleHold) {
-      this.setFinale(now);
-    }
-    if (!force && now - this.lastDraw < 1 / CONFIG.screen.fps) return false;
-
-    const n = this.typedCount(now);
-    const typing = n < this.total;
-    const cursorOn = typing || Math.floor((now * 1000) / CONFIG.screen.blinkMs) % 2 === 0;
-    const key = `${this.mode}|${n}|${cursorOn}`;
-    if (!force && key === this.lastKey) return false;
-    this.lastKey = key;
-    this.lastDraw = now;
-
-    if (this.mode === 'finale') this.drawFinale(n, cursorOn);
-    else this.drawCode(n, cursorOn);
-    this.texture.needsUpdate = true;
-    return true;
-  }
-
-  drawChrome() {
-    const { ctx } = this;
-    const { width, height } = CONFIG.screen;
-    const col = CONFIG.colors;
-    const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, '#0E1C17');
-    bg.addColorStop(1, col.screenBg);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-
-    // Title bar
-    ctx.fillStyle = 'rgba(255,255,255,0.035)';
-    ctx.fillRect(0, 0, width, 46);
-    [col.accent, '#4F6B60', '#33443E'].forEach((c, i) => {
-      ctx.beginPath();
-      ctx.arc(26 + i * 22, 23, 6.5, 0, Math.PI * 2);
-      ctx.fillStyle = c;
-      ctx.fill();
-    });
-    ctx.font = '500 21px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = col.code.comment;
-    ctx.textBaseline = 'middle';
-    ctx.fillText('aiquor.ts', 104, 24);
-  }
-
-  drawCode(n, cursorOn) {
-    const { ctx, charW } = this;
-    const col = CONFIG.colors;
-    this.drawChrome();
-
-    const left = 84, top = 100, lineH = 46;
-    ctx.font = this.font;
-    ctx.textBaseline = 'middle';
-
-    let remaining = n;
-    let cx = left, cy = top;
-    for (let li = 0; li < this.lines.length; li++) {
-      const y = top + li * lineH;
-      if (remaining < 0) break;
-      // line number
-      ctx.fillStyle = col.code.lineNo;
-      ctx.textAlign = 'right';
-      ctx.fillText(String(li + 1), 52, y);
-      ctx.textAlign = 'left';
-
-      let x = left;
-      for (const tok of this.lines[li]) {
-        if (remaining <= 0) break;
-        const text = tok.text.slice(0, remaining);
-        ctx.fillStyle = tok.color;
-        ctx.fillText(text, x, y);
-        x += text.length * charW;
-        remaining -= text.length;
-      }
-      cx = x; cy = y;
-      // consume the newline
-      if (li < this.lines.length - 1) {
-        if (remaining > 0) { remaining -= 1; cx = left; cy = top + (li + 1) * lineH; }
-        else break;
-      }
-    }
-
-    if (cursorOn) {
-      ctx.fillStyle = col.accent;
-      ctx.fillRect(cx + 2, cy - 17, charW * 0.62, 34);
-    }
-  }
-
-  drawFinale(n, cursorOn) {
-    const { ctx } = this;
-    const { width, height, finaleText } = CONFIG.screen;
-    const col = CONFIG.colors;
-    this.drawChrome();
-
-    ctx.font = this.bigFont;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    const bigW = ctx.measureText('M').width;
-    const x0 = Math.round((width - finaleText.length * bigW) / 2);
-    const y = height / 2 + 14;
-
-    // Faint prompt above the line
-    ctx.font = '500 20px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = col.code.comment;
-    ctx.fillText('$ aiquor --start', x0, y - 70);
-
-    ctx.font = this.bigFont;
-    const brandAt = finaleText.lastIndexOf('Aiquor');
-    const shown = finaleText.slice(0, n);
-    const head = shown.slice(0, brandAt);
-    const brand = shown.slice(brandAt);
-    ctx.fillStyle = col.code.text;
-    ctx.fillText(head, x0, y);
-    if (brand && n > brandAt) {
-      ctx.fillStyle = col.accent;
-      ctx.fillText(brand, x0 + head.length * bigW, y);
-    }
-    if (cursorOn) {
-      ctx.fillStyle = col.accent;
-      ctx.fillRect(x0 + shown.length * bigW + 6, y + 20, bigW * 0.9, 7); // underscore cursor
-    }
-  }
-
-  dispose() { this.texture.dispose(); }
+// ShapeGeometry with UVs normalised to 0..1 so a texture fills it.
+function roundedScreenGeometry(w, h, r) {
+  const geo = new THREE.ShapeGeometry(roundedRectShape(w, h, r), 10);
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
+  return geo;
 }
 
 /* -----------------------------------------------------------------------------
-   Laptop, built from rounded boxes
+   Devices
    -------------------------------------------------------------------------- */
-function buildLaptop(screen) {
-  const C = CONFIG.colors;
-  const rb = (w, h, d, r, seg = 4) => new RoundedBoxGeometry(w, h, d, seg, r);
-
-  const bodyMat = new THREE.MeshStandardMaterial({ color: C.body, roughness: 0.55, metalness: 0.2 });
-  const keyMat = new THREE.MeshStandardMaterial({ color: C.keys, roughness: 0.72, metalness: 0.08 });
-  const padMat = new THREE.MeshStandardMaterial({ color: C.trackpad, roughness: 0.38, metalness: 0.2 });
-  const accentMat = new THREE.MeshStandardMaterial({
-    color: C.accent, emissive: C.accent, emissiveIntensity: CONFIG.accentGlow, roughness: 0.4,
-  });
-  const backlightMat = new THREE.MeshStandardMaterial({
-    color: '#0F2A22', emissive: C.accent, emissiveIntensity: CONFIG.backlightGlow, roughness: 0.9,
-  });
-
+function buildLaptop(mats, screen, mobile) {
+  const rb = (w, h, d, r, seg = 3) => new RoundedBoxGeometry(w, h, d, seg, r);
   const laptop = new THREE.Group();
+  const W = 3.0, D = 2.0, H = 0.09;
 
-  // Base
-  const W = 3.2, D = 2.2, H = 0.12;
-  const base = new THREE.Mesh(rb(W, H, D, 0.055), bodyMat);
+  const base = new THREE.Mesh(rb(W, H, D, 0.04, 4), mats.body);
   base.position.y = H / 2;
   laptop.add(base);
 
-  // Keyboard backlight sits just under the keys; it shows through the gaps.
-  const kbZ = -0.42;
-  const backlight = new THREE.Mesh(rb(2.62, 0.008, 0.9, 0.003, 2), backlightMat);
-  backlight.position.set(0, H + 0.002, kbZ);
-  laptop.add(backlight);
+  // Keyboard
+  const kbZ = -0.4;
+  if (mobile) {
+    const kb = new THREE.Mesh(new THREE.PlaneGeometry(2.66, 0.92), new THREE.MeshStandardMaterial({
+      map: keyboardTexture(), roughness: 0.7, emissive: CONFIG.colors.accent, emissiveIntensity: 0.03,
+    }));
+    kb.rotation.x = -Math.PI / 2;
+    kb.position.set(0, H + 0.002, kbZ);
+    laptop.add(kb);
+  } else {
+    // Faint orange backlight, visible only in the gaps between keys
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.88), mats.backlight);
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(0, H + 0.001, kbZ);
+    laptop.add(glow);
 
-  // Keys (instanced)
-  const pitch = 0.205, keySize = 0.168, rows = 5, cols = 13;
-  const keyGeo = rb(keySize, 0.03, keySize, 0.025, 2);
-  const keys = new THREE.InstancedMesh(keyGeo, keyMat, rows * cols);
-  const m = new THREE.Matrix4();
-  let k = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      // Bottom row: leave the middle seven slots for the space bar.
-      if (r === rows - 1 && c >= 3 && c <= 9) continue;
-      m.setPosition((c - (cols - 1) / 2) * pitch, H + 0.02, kbZ + (r - (rows - 1) / 2) * 0.19);
-      keys.setMatrixAt(k++, m);
+    const pitch = 0.19, key = 0.155, rows = 5, cols = 14;
+    const keys = new THREE.InstancedMesh(rb(key, 0.024, key, 0.011, 2), mats.keys, rows * cols);
+    const m = new THREE.Matrix4();
+    let n = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (r === rows - 1 && c >= 4 && c <= 9) continue;  // space bar slot
+        m.setPosition((c - (cols - 1) / 2) * pitch, H + 0.014, kbZ + (r - (rows - 1) / 2) * 0.18);
+        keys.setMatrixAt(n++, m);
+      }
     }
+    keys.count = n;
+    laptop.add(keys);
+    const space = new THREE.Mesh(rb(pitch * 6 - (pitch - key), 0.024, key, 0.011, 2), mats.keys);
+    space.position.set(0, H + 0.014, kbZ + 2 * 0.18);
+    laptop.add(space);
   }
-  keys.count = k;
-  laptop.add(keys);
 
-  const space = new THREE.Mesh(rb(pitch * 7 - (pitch - keySize), 0.03, keySize, 0.025, 2), keyMat);
-  space.position.set(0, H + 0.02, kbZ + 2 * 0.19);
-  laptop.add(space);
-
-  // Trackpad
-  const pad = new THREE.Mesh(rb(1.15, 0.012, 0.6, 0.005, 2), padMat);
-  pad.position.set(0, H + 0.002, 0.62);
+  const pad = new THREE.Mesh(rb(1.0, 0.008, 0.56, 0.0035, 2), mats.trackpad);
+  pad.position.set(0, H + 0.001, 0.6);
   laptop.add(pad);
 
-  // Orange edge strips along the base: front and both sides
-  const front = new THREE.Mesh(rb(2.7, 0.014, 0.014, 0.006, 2), accentMat);
-  front.position.set(0, H * 0.5, D / 2 + 0.001);
-  laptop.add(front);
-  [-1, 1].forEach((side) => {
-    const s = new THREE.Mesh(rb(0.014, 0.014, 1.7, 0.006, 2), accentMat);
-    s.position.set(side * (W / 2 + 0.001), H * 0.5, 0);
-    laptop.add(s);
-  });
+  // Orange edge strip along the front of the base
+  const strip = new THREE.Mesh(rb(2.5, 0.012, 0.012, 0.005, 2), mats.accent);
+  strip.position.set(0, H * 0.5, D / 2 + 0.002);
+  laptop.add(strip);
 
-  // Hinge
-  const hinge = new THREE.Mesh(rb(2.5, 0.1, 0.1, 0.045, 3), bodyMat);
-  hinge.position.set(0, H + 0.02, -D / 2 + 0.06);
+  const hinge = new THREE.Mesh(rb(2.3, 0.08, 0.08, 0.035, 3), mats.deep);
+  hinge.position.set(0, H + 0.02, -D / 2 + 0.05);
   laptop.add(hinge);
 
-  // Lid, pivoting at the back edge
+  // Lid pivots at the back edge
   const lid = new THREE.Group();
-  lid.position.set(0, H + 0.02, -D / 2 + 0.06);
-  lid.rotation.x = -0.28;
+  lid.position.set(0, H + 0.03, -D / 2 + 0.05);
   laptop.add(lid);
 
-  const LH = 2.1, LD = 0.07;
-  const shell = new THREE.Mesh(rb(W, LH, LD, 0.035), bodyMat);
-  shell.position.set(0, LH / 2, 0);
+  const LH = 1.95, LD = 0.05;
+  const shell = new THREE.Mesh(rb(W, LH, LD, 0.022, 4), mats.body);
+  shell.position.y = LH / 2;
   lid.add(shell);
 
-  const screenMat = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false, color: 0x000000 });
-  const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.875), screenMat);
-  screenMesh.position.set(0, LH / 2 + 0.06, LD / 2 + 0.002);
+  const SW = 2.84, SH = 1.775, sy = LH / 2 + 0.03;
+  const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(SW, SH), screen.material);
+  screenMesh.position.set(0, sy, LD / 2 + 0.002);
   lid.add(screenMesh);
 
-  // Soft additive halo: only over the dark screen, never over the light page.
-  const haloTex = radialTexture(256, [[0, 'rgba(232,151,58,0.9)'], [0.55, 'rgba(232,151,58,0.25)'], [1, 'rgba(232,151,58,0)']]);
-  const haloMat = new THREE.MeshBasicMaterial({
-    map: haloTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
-    depthWrite: false, toneMapped: false,
+  // Thin orange frame around the screen bezel
+  const frameShape = roundedRectShape(SW + 0.03, SH + 0.03, 0.02);
+  frameShape.holes.push(roundedRectShape(SW + 0.004, SH + 0.004, 0.01));
+  const frame = new THREE.Mesh(new THREE.ShapeGeometry(frameShape, 4), mats.accentFlat);
+  frame.position.set(0, sy, LD / 2 + 0.0015);
+  lid.add(frame);
+
+  // Where the connection curve meets the laptop (left edge of the screen)
+  const anchor = new THREE.Object3D();
+  anchor.position.set(-SW / 2 + 0.1, sy + 0.2, LD / 2 + 0.02);
+  lid.add(anchor);
+
+  // Soft light spill from the screen onto the keyboard
+  const spill = new THREE.PointLight('#FFF1DE', 0, 3.2, 2);
+  spill.position.set(0, 0.7, 0.75);
+  lid.add(spill);
+
+  return { laptop, lid, anchor, spill };
+}
+
+function buildPhone(mats, screen) {
+  const phone = new THREE.Group();
+  const w = 0.74, h = 1.5, depth = 0.045, bevel = 0.012, r = 0.11;
+
+  const bodyGeo = new THREE.ExtrudeGeometry(roundedRectShape(w, h, r), {
+    depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 10,
   });
-  const halo = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.8), haloMat);
-  halo.position.set(0, LH / 2 + 0.06, LD / 2 + 0.006);
-  lid.add(halo);
+  bodyGeo.translate(0, 0, -depth / 2);
+  phone.add(new THREE.Mesh(bodyGeo, mats.body));
 
-  // Thin orange strip along the bottom bezel
-  const bezel = new THREE.Mesh(rb(0.9, 0.014, 0.01, 0.004, 2), accentMat);
-  bezel.position.set(0, 0.07, LD / 2 + 0.002);
-  lid.add(bezel);
+  // Orange side-frame accent: a thin ring that peeks out of the edge
+  const ringShape = roundedRectShape(w + bevel * 2 + 0.006, h + bevel * 2 + 0.006, r + bevel);
+  ringShape.holes.push(roundedRectShape(w + bevel * 2 - 0.01, h + bevel * 2 - 0.01, r + bevel - 0.008));
+  const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: 0.012, bevelEnabled: false, curveSegments: 10 });
+  ringGeo.translate(0, 0, -0.006);
+  phone.add(new THREE.Mesh(ringGeo, mats.accent));
 
-  // Orange light from the screen, spilling onto the keyboard and nearby glass.
-  RectAreaLightUniformsLib.init();
-  const screenLight = new THREE.RectAreaLight(CONFIG.colors.accent, 0, 2.8, 1.7);
-  screenLight.position.set(0, LH / 2 + 0.06, 0.15);
-  screenLight.rotation.y = Math.PI; // face out of the screen (+Z of the lid)
-  lid.add(screenLight);
+  const SW = 0.68, SH = 1.36;
+  const scr = new THREE.Mesh(roundedScreenGeometry(SW, SH, 0.085), screen.material);
+  scr.position.z = depth / 2 + bevel + 0.001;
+  phone.add(scr);
 
-  return { laptop, screenMat, haloMat, screenLight, accentMat, backlightMat };
-}
-
-/* -----------------------------------------------------------------------------
-   Glass shapes
-   -------------------------------------------------------------------------- */
-function glassGeometry(type, s) {
-  switch (type) {
-    case 'torus':       return new THREE.TorusGeometry(s, s * 0.38, 32, 96);
-    case 'icosa':       return new THREE.IcosahedronGeometry(s, 0);
-    case 'capsule':     return new THREE.CapsuleGeometry(s, s * 3, 12, 32);
-    case 'roundedCube':
-    default:            return new RoundedBoxGeometry(s, s, s, 6, s * 0.22);
-  }
-}
-
-function buildGlass(mobile) {
-  const group = new THREE.Group();
-  const count = mobile ? CONFIG.mobile.glass : CONFIG.glass.count;
-  const items = [];
-  CONFIG.glass.shapes.slice(0, count).forEach((def, i) => {
-    const mat = mobile
-      ? new THREE.MeshStandardMaterial({
-          color: CONFIG.colors.glassTint, roughness: 0.08, metalness: 0.1,
-          transparent: true, opacity: CONFIG.mobile.glassOpacity, depthWrite: false,
-        })
-      : new THREE.MeshPhysicalMaterial({
-          color: CONFIG.colors.glassTint,
-          transmission: CONFIG.glass.transmission,
-          thickness: def.thickness,
-          roughness: def.roughness,
-          ior: CONFIG.glass.ior,
-          iridescence: CONFIG.glass.iridescence,
-          iridescenceIOR: 1.3,
-          metalness: 0,
-          envMapIntensity: 1.1,
-          specularIntensity: 1,
-        });
-    if (!mobile) mat.color.multiplyScalar(CONFIG.glass.brightness);
-    const mesh = new THREE.Mesh(glassGeometry(def.type, def.size), mat);
-    mesh.position.fromArray(def.pos);
-    mesh.rotation.set(i * 0.7, i * 1.3, i * 0.4);
-    group.add(mesh);
-    items.push({ mesh, def, phase: i * 1.7 });
-  });
-  return { group, items };
-}
-
-/* -----------------------------------------------------------------------------
-   Particles: soft dots, normal blending, faux depth of field in the shader
-   -------------------------------------------------------------------------- */
-function buildParticles(count) {
-  const P = CONFIG.particles;
-  const b = P.bounds;
-  const pos = new Float32Array(count * 3);
-  const col = new Float32Array(count * 3);
-  const seed = new Float32Array(count);
-  const alpha = new Float32Array(count);
-  const cool = new THREE.Color(CONFIG.colors.particle);
-  const warm = new THREE.Color(CONFIG.colors.particleWarm);
-
-  for (let i = 0; i < count; i++) {
-    pos[i * 3]     = (Math.random() * 2 - 1) * b.x;
-    pos[i * 3 + 1] = lerp(b.yMin, b.yMax, Math.random());
-    pos[i * 3 + 2] = lerp(b.zMin, b.zMax, Math.random());
-    const c = Math.random() < P.warmShare ? warm : cool;
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-    seed[i] = Math.random();
-    alpha[i] = lerp(P.opacityMin, P.opacityMax, Math.random());
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  geo.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
-  geo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
-
-  const sprite = radialTexture(64, [[0, 'rgba(255,255,255,1)'], [0.45, 'rgba(255,255,255,0.75)'], [1, 'rgba(255,255,255,0)']]);
-
-  const mat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.NormalBlending,
-    uniforms: {
-      uTime:   { value: 0 },
-      uOffset: { value: 0 },
-      uSize:   { value: P.size },
-      uMaxSize: { value: P.maxSize },
-      uPixelRatio: { value: 1 },
-      uFocus:  { value: P.focusDistance },
-      uRange:  { value: P.focusRange },
-      uDrift:  { value: P.drift },
-      uSpeed:  { value: P.driftSpeed },
-      uYMin:   { value: b.yMin },
-      uYSpan:  { value: b.yMax - b.yMin },
-      uMap:    { value: sprite },
-    },
-    vertexShader: /* glsl */`
-      attribute vec3 color;
-      attribute float seed;
-      attribute float alpha;
-      uniform float uTime, uOffset, uSize, uMaxSize, uPixelRatio, uFocus, uRange, uDrift, uSpeed, uYMin, uYSpan;
-      varying vec3 vColor;
-      varying float vAlpha;
-      void main() {
-        vec3 p = position;
-        // Cheap layered-sine "noise" drift, unique per particle
-        float t = uTime * uSpeed;
-        float s = seed * 6.2831;
-        p.x += (sin(t * 1.3 + s) + 0.5 * sin(t * 2.1 + s * 2.7)) * uDrift;
-        p.y += (cos(t * 1.1 + s * 1.7) + 0.5 * sin(t * 1.9 + s * 0.6)) * uDrift;
-        p.z += sin(t * 0.9 + s * 3.1) * uDrift;
-        // Scroll offset with wraparound so the field never runs out
-        p.y = uYMin + mod(p.y - uYMin + uOffset, uYSpan);
-
-        vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        float dist = -mv.z;
-        float blur = clamp(abs(dist - uFocus) / uRange, 0.0, 2.0);
-        gl_PointSize = min(uSize * (1.0 + blur * 0.9) * (10.0 / max(dist, 0.5)), uMaxSize) * uPixelRatio;
-        vAlpha = alpha / (1.0 + blur * 3.0);
-        vColor = color;
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: /* glsl */`
-      uniform sampler2D uMap;
-      varying vec3 vColor;
-      varying float vAlpha;
-      void main() {
-        float a = texture2D(uMap, gl_PointCoord).a * vAlpha;
-        if (a < 0.01) discard;
-        gl_FragColor = vec4(vColor, a);
-        #include <colorspace_fragment>
-      }
-    `,
+  // Camera island on the back
+  const island = new THREE.Mesh(new RoundedBoxGeometry(0.24, 0.24, 0.02, 3, 0.008), mats.deep);
+  island.position.set(-0.17, 0.5, -(depth / 2 + bevel + 0.008));
+  phone.add(island);
+  const lensGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.012, 20);
+  [[-0.215, 0.545], [-0.125, 0.455]].forEach(([x, y]) => {
+    const lens = new THREE.Mesh(lensGeo, mats.lens);
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(x, y, -(depth / 2 + bevel + 0.02));
+    phone.add(lens);
   });
 
-  const points = new THREE.Points(geo, mat);
-  points.frustumCulled = false;
-  return { points, mat };
-}
+  const anchor = new THREE.Object3D();
+  anchor.position.set(SW / 2 - 0.05, 0.1, 0.05);
+  phone.add(anchor);
 
-/* -----------------------------------------------------------------------------
-   Contact shadow: blurred radial gradient on a plane (no shadow maps)
-   -------------------------------------------------------------------------- */
-function buildShadow() {
-  const tex = radialTexture(256, [[0, 'rgba(20,35,31,0.55)'], [0.45, 'rgba(20,35,31,0.22)'], [1, 'rgba(20,35,31,0)']]);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.8), mat);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = -0.02;
-  mesh.renderOrder = -1;
-  return { mesh, mat };
+  return { phone, anchor };
 }
 
 /* -----------------------------------------------------------------------------
@@ -777,7 +1012,23 @@ function buildShadow() {
    -------------------------------------------------------------------------- */
 let app = null;
 
-function init() {
+function flatStep(step, mode, story) {
+  const f = step.frame[mode];
+  const zoom = mode === 'stacked' ? (step.stackedZoom || 1) : 1;
+  const cp = step.camera.position, cl = step.camera.lookAt;
+  return {
+    cpx: cl[0] + (cp[0] - cl[0]) * zoom, cpy: cl[1] + (cp[1] - cl[1]) * zoom, cpz: cl[2] + (cp[2] - cl[2]) * zoom,
+    clx: cl[0], cly: cl[1], clz: cl[2],
+    lpx: step.laptop.position[0], lpy: step.laptop.position[1], lpz: step.laptop.position[2],
+    lrx: step.laptop.rotation[0], lry: step.laptop.rotation[1], lrz: step.laptop.rotation[2],
+    ppx: step.phone.position[0], ppy: step.phone.position[1], ppz: step.phone.position[2],
+    prx: step.phone.rotation[0], pry: step.phone.rotation[1], prz: step.phone.rotation[2],
+    fx: f.x, fy: f.y,
+    story,
+  };
+}
+
+async function init() {
   if (!wrap || !canvas) return;
 
   const reduced = mqReduced.matches;
@@ -785,322 +1036,392 @@ function init() {
 
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      // At 2x pixel ratio the extra pixels already smooth edges; skip MSAA there.
+      antialias: (window.devicePixelRatio || 1) < 2,
+      powerPreference: 'high-performance',
+    });
   } catch (e) {
     fail();
     return;
   }
 
+  // Draw the screens with the site font, not a fallback.
+  try {
+    await Promise.race([
+      Promise.all([document.fonts.load(font(400, 24)), document.fonts.load(font(500, 24)), document.fonts.load(font(600, 24))]),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch (e) { /* draw with the fallback font */ }
+
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = CONFIG.exposure;
-  // The canvas sits on the page background, so clear to that colour at full
-  // alpha. Glass transmission samples this colour; a transparent clear makes
-  // glass look grey on a light page.
-  renderer.setClearColor(CONFIG.colors.background, 1);
+  renderer.toneMappingExposure = CONFIG.render.exposure;
+  renderer.setClearColor(0x000000, 0);   // transparent: the CSS background shows through
 
   const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(CONFIG.colors.background, CONFIG.render.fogNear, CONFIG.render.fogFar);
   const pmrem = new THREE.PMREMGenerator(renderer);
   const roomEnv = new RoomEnvironment();
   const envRT = pmrem.fromScene(roomEnv, 0.04);
   scene.environment = envRT.texture;
-  scene.environmentIntensity = CONFIG.envIntensity;
+  scene.environmentIntensity = CONFIG.render.envIntensity;
   roomEnv.dispose();
+  pmrem.dispose();
 
-  // Soft studio lighting
-  scene.add(new THREE.HemisphereLight('#ffffff', '#cfc8b8', CONFIG.hemiIntensity));
-  const key = new THREE.DirectionalLight('#fff3e3', CONFIG.keyIntensity);
-  key.position.set(-4, 7, 6);
-  scene.add(key);
-  const rim = new THREE.DirectionalLight('#e6efe9', 0.5);
-  rim.position.set(5, 3, -6);
-  scene.add(rim);
+  // Lighting: warm key, low fill, cream rim from behind
+  const C = CONFIG.colors;
+  scene.add(new THREE.HemisphereLight('#DCE8E1', '#0B1913', 0.3));
+  const key = new THREE.DirectionalLight(C.keyLight, 1.5); key.position.set(-4, 6, 5); scene.add(key);
+  const fill = new THREE.DirectionalLight(C.fillLight, 0.25); fill.position.set(5, 2, 4); scene.add(fill);
+  const rim = new THREE.DirectionalLight(C.rimLight, 1.7); rim.position.set(0.5, 3.5, -6); scene.add(rim);
 
-  const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, 1, 0.1, 80);
+  const camera = new THREE.PerspectiveCamera(CONFIG.render.fov, 1, 0.1, 60);
 
-  // Scene graph: rig (scroll transform) > floater (bob) > laptop
-  const rig = new THREE.Group();
-  const floater = new THREE.Group();
-  rig.add(floater);
-  scene.add(rig);
+  // Shared materials
+  const mats = {
+    body:       new THREE.MeshStandardMaterial({ color: C.device, roughness: 0.5, metalness: 0.25 }),
+    deep:       new THREE.MeshStandardMaterial({ color: C.deviceDeep, roughness: 0.55, metalness: 0.2 }),
+    keys:       new THREE.MeshStandardMaterial({ color: C.deviceDeep, roughness: 0.7, metalness: 0.08 }),
+    trackpad:   new THREE.MeshStandardMaterial({ color: C.trackpad, roughness: 0.35, metalness: 0.2 }),
+    accent:     new THREE.MeshStandardMaterial({ color: C.accent, emissive: C.accent, emissiveIntensity: 0.9, roughness: 0.4 }),
+    accentFlat: new THREE.MeshBasicMaterial({ color: C.accent, toneMapped: false, transparent: true, opacity: 0.85 }),
+    backlight:  new THREE.MeshBasicMaterial({ color: '#3d2510', toneMapped: false }),
+    lens:       new THREE.MeshStandardMaterial({ color: '#0d1a15', roughness: 0.15, metalness: 0.6 }),
+  };
 
-  const screen = new CodeScreen();
-  const lap = buildLaptop(screen);
-  floater.add(lap.laptop);
+  // Screens
+  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const fps = mobile ? CONFIG.mobile.screenFps : CONFIG.render.screenFps;
+  const phoneScreen = new Screen({
+    size: mobile ? CONFIG.mobile.phoneCanvas : CONFIG.desktopCanvas.phone, base: [600, 1200],
+    draw: drawPhone, mipmaps: !mobile, anisotropy: aniso, fps,
+  });
+  const laptopScreen = new Screen({
+    size: mobile ? CONFIG.mobile.laptopCanvas : CONFIG.desktopCanvas.laptop, base: [1280, 800],
+    draw: drawLaptop, mipmaps: !mobile, anisotropy: aniso, fps,
+  });
+  [phoneScreen, laptopScreen].forEach((sc) => {
+    sc.material = new THREE.MeshBasicMaterial({ map: sc.texture, toneMapped: false, color: 0x000000 });
+  });
 
-  const shadow = buildShadow();
-  rig.add(shadow.mesh);
+  // Scene graph: world (mouse) > rig (scroll) > float (idle) > device
+  const world = new THREE.Group();
+  scene.add(world);
 
-  const glass = buildGlass(mobile);
-  scene.add(glass.group);
+  const laptopRig = new THREE.Group(), laptopFloat = new THREE.Group();
+  laptopRig.add(laptopFloat); world.add(laptopRig);
+  const L = buildLaptop(mats, laptopScreen, mobile);
+  laptopFloat.add(L.laptop);
 
-  const particles = buildParticles(mobile ? CONFIG.mobile.particles : CONFIG.particles.count);
-  scene.add(particles.points);
+  const phoneRig = new THREE.Group(), phoneFloat = new THREE.Group();
+  phoneRig.add(phoneFloat); world.add(phoneRig);
+  const P = buildPhone(mats, phoneScreen);
+  phoneFloat.add(P.phone);
 
-  // Sections
+  // Contact shadows (blurred radial planes, no shadow maps)
+  const shadowTex = radialTexture(128, [[0, 'rgba(0,0,0,0.5)'], [0.5, 'rgba(0,0,0,0.24)'], [1, 'rgba(0,0,0,0)']]);
+  const shadowMat = (o) => new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: o });
+  const laptopShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.3), shadowMat(1));
+  laptopShadow.rotation.x = -Math.PI / 2;
+  laptopShadow.position.y = -0.01;
+  laptopRig.add(laptopShadow);
+  const phoneShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.1), shadowMat(0.5));
+  phoneShadow.rotation.x = -Math.PI / 2;
+  world.add(phoneShadow);
+
+  // Halo sprites (desktop only): glow under the laptop's orange strip, and on the pulse
+  const haloTex = radialTexture(128, [[0, 'rgba(232,151,58,1)'], [0.4, 'rgba(232,151,58,0.35)'], [1, 'rgba(232,151,58,0)']]);
+  if (!mobile) {
+    const stripHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: haloTex, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+    }));
+    stripHalo.scale.set(2.8, 0.35, 1);
+    stripHalo.position.set(0, 0.05, 1.05);
+    L.laptop.add(stripHalo);
+  }
+
+  // Connection curve + pulse
+  const CURVE_POINTS = 48;
+  const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]);
+  const linePos = new Float32Array(CURVE_POINTS * 3);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+  const lineMat = new THREE.LineBasicMaterial({ color: '#F5F1E8', transparent: true, opacity: 0, depthWrite: false });
+  const line = new THREE.Line(lineGeo, lineMat);
+  line.frustumCulled = false;
+  world.add(line);
+
+  const pulse = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 12), new THREE.MeshBasicMaterial({
+    color: C.accent, toneMapped: false, transparent: true, opacity: 0,
+  }));
+  pulse.visible = false;
+  world.add(pulse);
+  let pulseHalo = null;
+  if (!mobile) {
+    pulseHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: haloTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+    }));
+    pulseHalo.scale.setScalar(0.42);
+    pulse.add(pulseHalo);
+  }
+
+  // Sections → steps
   const sections = Array.from(document.querySelectorAll('[data-scene]'))
     .sort((a, b) => Number(a.dataset.scene) - Number(b.dataset.scene));
-  const shots = scenesFor(Math.max(1, sections.length));
-
-  // State: target is written by GSAP, current eases toward it.
-  let mode = layoutMode();
-  const target = flatKeyframe(shots[0], mode);
-  const current = { ...target };
-  const mouse = { x: 0, y: 0, sx: 0, sy: 0 };
+  const count = Math.max(1, sections.length);
+  const K = CONFIG.steps.length;
+  const steps = Array.from({ length: count }, (_, i) =>
+    CONFIG.steps[count === 1 ? 0 : Math.round((i * (K - 1)) / (count - 1))]);
+  const storyAt = (i) => (count === 1 ? 0 : (i * STORY_MAX) / (count - 1));
 
   const state = {
-    renderer, scene, camera, pmrem, envRT, screen, rig, floater, lap, shadow, glass, particles,
-    sections, shots, target, current, mouse,
-    reduced, mobile, mode,
-    timeline: null, triggers: [], observers: [], listeners: [],
-    running: false, inView: true, firstFrame: false,
+    renderer, scene, envRT, phoneScreen, laptopScreen,
+    reduced, mode: layoutMode(),
+    timeline: null, observers: [], listeners: [],
+    running: false, inView: true, firstFrame: false, disposed: false,
     clock: new THREE.Clock(), elapsed: 0,
-    activeScene: 0, poweredAt: -1, powerStart: null, // powerStart: null until the screen wakes
+    pixelRatio: 1, frameTimes: [],
+    textures: [shadowTex, haloTex],
   };
   app = state;
 
+  const target = flatStep(steps[0], state.mode, 0);
+  const current = { ...target };
+  const mouse = { x: 0, y: 0, sx: 0, sy: 0 };
   const on = (el, type, fn, opts) => { el.addEventListener(type, fn, opts); state.listeners.push([el, type, fn, opts]); };
 
-  /* ----- sizing & composition ----- */
-  function resize() {
+  /* ----- sizing ----- */
+  function pickPixelRatio() {
     const w = window.innerWidth, h = window.innerHeight;
-    const maxPR = state.mobile ? CONFIG.mobile.maxPixelRatio : CONFIG.maxPixelRatio;
-    const pr = Math.min(window.devicePixelRatio || 1, maxPR);
-    renderer.setPixelRatio(pr);
-    renderer.setSize(w, h, false);
-    particles.mat.uniforms.uPixelRatio.value = pr;
-
-    const aspect = w / h;
-    camera.aspect = aspect;
-    // Narrow screens: widen the vertical fov so the horizontal view never
-    // drops below what minAspect would show.
-    if (aspect < CONFIG.camera.minAspect) {
-      const t = Math.tan(THREE.MathUtils.degToRad(CONFIG.camera.fov / 2)) * (CONFIG.camera.minAspect / aspect);
-      camera.fov = Math.min(CONFIG.camera.maxFov, THREE.MathUtils.radToDeg(Math.atan(t)) * 2);
-    } else {
-      camera.fov = CONFIG.camera.fov;
-    }
-    camera.updateProjectionMatrix();
-
-    const newMode = layoutMode();
-    if (newMode !== state.mode) {
-      state.mode = newMode;
-    }
-    buildTimeline();
-    if (!state.running) renderOnce();
+    const maxPR = mobile ? CONFIG.mobile.maxPixelRatio : CONFIG.render.maxPixelRatio;
+    const maxPixels = mobile ? CONFIG.mobile.maxPixels : CONFIG.render.maxPixels;
+    return Math.min(window.devicePixelRatio || 1, maxPR, Math.sqrt(maxPixels / (w * h)));
   }
 
-  // Shift the whole picture on screen without moving the camera.
+  function applySize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setPixelRatio(state.pixelRatio);
+    renderer.setSize(w, h, false);
+    const aspect = w / h;
+    camera.aspect = aspect;
+    if (aspect < CONFIG.render.minAspect) {
+      const tn = Math.tan(THREE.MathUtils.degToRad(CONFIG.render.fov / 2)) * (CONFIG.render.minAspect / aspect);
+      camera.fov = Math.min(CONFIG.render.maxFov, THREE.MathUtils.radToDeg(Math.atan(tn)) * 2);
+    } else {
+      camera.fov = CONFIG.render.fov;
+    }
+    camera.updateProjectionMatrix();
+  }
+
+  let lastW = 0;
+  function resize() {
+    // Phones fire resize when the address bar shows/hides; only width changes
+    // need a new layout.
+    const widthChanged = window.innerWidth !== lastW;
+    lastW = window.innerWidth;
+    state.pixelRatio = pickPixelRatio();
+    state.frameTimes.length = 0;
+    applySize();
+    if (widthChanged) {
+      state.mode = layoutMode();
+      buildTimeline();
+    }
+    if (!state.running) renderStill();
+  }
+
   function applyFrame(fx, fy) {
     const w = window.innerWidth, h = window.innerHeight;
     camera.setViewOffset(w, h, -fx * w, -fy * h, w, h);
   }
 
   /* ----- scroll choreography ----- */
-  function sceneAnchors() {
+  function anchors() {
     const vh = window.innerHeight;
     const maxScroll = Math.max(0, document.documentElement.scrollHeight - vh);
-    const anchors = [];
+    const out = [];
+    const wide = state.mode === 'wide';
     sections.forEach((el, i) => {
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      let a = i === 0 ? 0 : Math.min(maxScroll, Math.max(0, top - vh * 0.3));
-      if (i > 0 && a <= anchors[i - 1]) a = anchors[i - 1] + 1;
-      anchors.push(a);
+      const r = el.getBoundingClientRect();
+      const edge = wide ? r.top - vh * CONFIG.layout.wideAnchor : r.bottom - vh * CONFIG.layout.stackedAnchor;
+      let a = i === 0 ? 0 : Math.min(maxScroll, Math.max(0, edge + window.scrollY));
+      if (i > 0 && a <= out[i - 1]) a = out[i - 1] + 1;
+      out.push(a);
     });
-    return anchors;
+    return out;
   }
 
   function buildTimeline() {
-    const gsap = window.gsap, ScrollTrigger = window.ScrollTrigger;
-    if (gsap && ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
-    const keys = shots.map((s) => flatKeyframe(s, state.mode));
+    const gsap = window.gsap, ST = window.ScrollTrigger;
+    const keys = steps.map((st, i) => flatStep(st, state.mode, storyAt(i)));
 
     if (state.timeline) {
-      state.timeline.scrollTrigger && state.timeline.scrollTrigger.kill();
+      if (state.timeline.scrollTrigger) state.timeline.scrollTrigger.kill();
       state.timeline.kill();
       state.timeline = null;
     }
 
-    // Without GSAP (or reduced motion, or only one section): hold scene 1.
-    if (state.reduced || !gsap || !ScrollTrigger || sections.length < 2) {
-      Object.assign(target, keys[0]);
-      if (state.reduced) Object.assign(current, keys[0]);
+    if (state.reduced) {
+      // One static finale frame
+      Object.assign(target, keys[keys.length - 1], { story: STORY_MAX });
+      Object.assign(current, target);
       return;
     }
+    if (!gsap || !ST || sections.length < 2) {
+      Object.assign(target, keys[0]);
+      return;
+    }
+    gsap.registerPlugin(ST);
 
-    const anchors = sceneAnchors();
+    const a = anchors();
     const tl = gsap.timeline({
-      defaults: { ease: 'power2.inOut' },
-      scrollTrigger: {
-        start: anchors[0],
-        end: anchors[anchors.length - 1],
-        scrub: CONFIG.motion.scrub,
-      },
+      scrollTrigger: { start: a[0], end: a[a.length - 1], scrub: CONFIG.motion.scrub },
     });
     for (let i = 0; i < keys.length - 1; i++) {
-      const from = { ...keys[i], progress: i / (keys.length - 1) };
-      const to = { ...keys[i + 1], progress: (i + 1) / (keys.length - 1) };
-      tl.fromTo(target, from, { ...to, duration: anchors[i + 1] - anchors[i], immediateRender: false }, anchors[i] - anchors[0]);
+      const dur = a[i + 1] - a[i];
+      const { story: s0, ...from } = keys[i];
+      const { story: s1, ...to } = keys[i + 1];
+      // Camera + devices: slow, film-like easing
+      tl.fromTo(target, from, { ...to, duration: dur, ease: CONFIG.motion.ease, immediateRender: false }, a[i] - a[0]);
+      // Story: linear, so every beat maps evenly onto scroll distance
+      tl.fromTo(target, { story: s0 }, { story: s1, duration: dur, ease: 'none', immediateRender: false }, a[i] - a[0]);
     }
     state.timeline = tl;
     tl.scrollTrigger.refresh();
-    // Snap target to the current scroll position so a resize mid-page does not drift.
     tl.progress(tl.scrollTrigger.progress);
   }
 
-  /* ----- which section is "active" for the screen ----- */
-  function setActiveScene(i) {
-    i = Math.max(0, Math.min(shots.length - 1, i));
-    if (i === state.activeScene && state.screenStarted) return;
-    state.activeScene = i;
-    if (state.poweredAt < 0) return; // typing starts after power-on
-    const shot = shots[i];
-    state.screenStarted = true;
-    screen.setSnippet(shot.code, state.elapsed, { finale: !!shot.finale });
+  /* ----- visibility ----- */
+  function updateRunning() {
+    const run = !state.reduced && state.inView && document.visibilityState === 'visible' && !state.disposed;
+    if (run === state.running) return;
+    state.running = run;
+    if (run) { state.clock.getDelta(); state.frameTimes.length = 0; renderer.setAnimationLoop(frame); }
+    else renderer.setAnimationLoop(null);
   }
 
-  function sceneFromScroll() {
-    const line = window.innerHeight * 0.55;
-    let idx = 0;
-    sections.forEach((el, i) => { if (el.getBoundingClientRect().top <= line) idx = i; });
-    return idx;
+  if ('IntersectionObserver' in window) {
+    const visible = new Set();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => (e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)));
+      state.inView = visible.size > 0;
+      updateRunning();
+    }, { rootMargin: '15% 0px 15% 0px' });
+    sections.forEach((el) => io.observe(el));
+    state.observers.push(io);
   }
 
-  function watchSections() {
-    let ticking = false;
-    const check = () => { ticking = false; setActiveScene(sceneFromScroll()); };
-    on(window, 'scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(check); } }, { passive: true });
-
-    // Pause when no animated section is on screen (e.g. the opaque contact block).
-    if ('IntersectionObserver' in window) {
-      const visible = new Set();
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((e) => (e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)));
-        state.inView = visible.size > 0;
-        updateRunning();
-      }, { rootMargin: '10% 0px 10% 0px' });
-      sections.forEach((el) => io.observe(el));
-      state.observers.push(io);
-    }
-  }
-
-  /* ----- input ----- */
-  function watchMouse() {
-    if (state.reduced || !mqFinePointer.matches) return;
+  /* ----- mouse parallax (fine pointers only) ----- */
+  if (!reduced && mqFinePointer.matches) {
     on(window, 'pointermove', (e) => {
       if (e.pointerType && e.pointerType !== 'mouse') return;
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
     }, { passive: true });
-    on(document, 'mouseleave', () => { mouse.x = 0; mouse.y = 0; });
+    on(document.documentElement, 'mouseleave', () => { mouse.x = 0; mouse.y = 0; });
   }
 
   /* ----- per-frame update ----- */
-  const tmpLook = new THREE.Vector3();
-  const tmpPos = new THREE.Vector3();
-  const tmpOff = new THREE.Vector3();
-  const spherical = new THREE.Spherical();
-  let lastOpacity = -1;
-
-  function powerLevel(t) {
-    // 0 → flicker (orange) → full white. Returns { b: brightness, warm: 0..1, halo }
-    const S = CONFIG.screen;
-    if (state.powerStart === null) return { b: 0, warm: 1, halo: 0 };
-    const e = t - state.powerStart;
-    if (e >= S.powerOnDuration) return { b: 1, warm: 0, halo: 0.07 };
-    const p = e / S.powerOnDuration;
-    // Two soft flickers in the first ~40%, then a smooth fade-up.
-    const flicker = p < 0.4 ? (0.35 + 0.65 * Math.abs(Math.sin(p * 38))) * smoothstep(0, 0.08, p) : 1;
-    const b = flicker * smoothstep(0.0, 0.9, p) * (p < 0.4 ? 0.55 : 1);
-    return { b, warm: 1 - smoothstep(0.35, 1, p), halo: 0.07 + 0.22 * (1 - smoothstep(0.3, 1, p)) * flicker };
-  }
-
-  const warmColor = new THREE.Color(CONFIG.colors.accent);
-  const white = new THREE.Color(1, 1, 1);
+  const look = new THREE.Vector3(), off = new THREE.Vector3(), sph = new THREE.Spherical();
+  const pA = new THREE.Vector3(), pB = new THREE.Vector3();
+  const I = CONFIG.intro, M = CONFIG.motion;
 
   function update(dt, t) {
-    const M = CONFIG.motion;
     const still = state.reduced;
 
-    // Ease current → target (reduced motion: snap)
+    // Ease current → target
     const k = still ? 1 : damp(M.follow, dt);
-    for (const key in target) current[key] = lerp(current[key], target[key], k);
+    const ks = still ? 1 : damp(M.storyFollow, dt);
+    for (const key in target) current[key] = lerp(current[key], target[key], key === 'story' ? ks : k);
 
-    // Mouse parallax, smoothed
+    // Mouse
     const km = damp(M.mouseLerp, dt);
     mouse.sx = lerp(mouse.sx, mouse.x, km);
     mouse.sy = lerp(mouse.sy, mouse.y, km);
     const maxRad = THREE.MathUtils.degToRad(M.mouseMaxDeg);
 
-    // Composition
-    const stackedScale = state.mode === 'stacked' ? CONFIG.layout.stackedScale : 1;
-    applyFrame(current.fx, current.fy);
+    // Intro (time based; skipped for reduced motion)
+    const lidP = still ? 1 : easeOut3(clamp01(t / I.lidDuration));
+    const phoneP = still ? 1 : easeOut3(clamp01((t - I.phoneDelay) / I.phoneDuration));
+    const screensOn = still ? 1 : easeInOut(clamp01((t - I.screensOnAt) / I.screensOnFor));
+    L.lid.rotation.x = lerp(Math.PI / 2, I.lidOpenAngle, lidP);
 
-    // Rig: scroll position/rotation/scale + a touch of mouse rotation
-    rig.position.set(current.cx, current.cy, current.cz);
-    rig.rotation.set(current.rx - mouse.sy * maxRad * 0.4, current.ry + mouse.sx * maxRad * 0.6, current.rz);
-    rig.scale.setScalar(current.s * stackedScale);
+    // Devices
+    laptopRig.position.set(current.lpx, current.lpy, current.lpz);
+    laptopRig.rotation.set(current.lrx, current.lry, current.lrz);
+    phoneRig.position.set(current.ppx, current.ppy - (1 - phoneP) * 0.55, current.ppz);
+    phoneRig.rotation.set(current.prx, current.pry, current.prz);
 
-    // Idle float
+    const lf = M.laptopFloat, pf = M.phoneFloat;
     if (!still) {
-      floater.position.y = Math.sin(t * M.floatSpeed) * M.floatAmp + M.floatAmp;
-      floater.rotation.z = Math.sin(t * M.floatSpeed * 0.75) * M.floatTilt;
-      floater.rotation.x = Math.sin(t * M.floatSpeed * 0.6 + 1) * M.floatTilt * 0.8;
+      laptopFloat.position.y = lf.amp + Math.sin(t * lf.speed) * lf.amp;
+      laptopFloat.rotation.z = Math.sin(t * lf.speed * 0.8 + 0.5) * lf.tilt;
+      laptopFloat.rotation.x = Math.sin(t * lf.speed * 0.6 + 1.2) * lf.tilt;
+      phoneFloat.position.y = Math.sin(t * pf.speed + 1.7) * pf.amp;
+      phoneFloat.rotation.z = Math.sin(t * pf.speed * 0.7 + 0.3) * pf.tilt;
+      phoneFloat.rotation.y = Math.sin(t * pf.speed * 0.5 + 2.1) * pf.tilt;
     } else {
-      floater.position.y = M.floatAmp;
+      laptopFloat.position.y = lf.amp;
     }
-    const lift = floater.position.y / (M.floatAmp * 2 || 1);
-    shadow.mat.opacity = 0.95 - lift * 0.3;
-    shadow.mesh.scale.setScalar(1 + lift * 0.08);
+    laptopShadow.material.opacity = 0.95 - (laptopFloat.position.y / (lf.amp * 2)) * 0.25;
+    phoneShadow.position.set(phoneRig.position.x, 0, phoneRig.position.z);
+    phoneShadow.material.opacity = 0.5 * phoneP;
 
-    // Camera: keyframe position, orbited a few degrees by the mouse
-    tmpLook.set(current.lx, current.ly, current.lz);
-    tmpOff.set(current.px, current.py, current.pz).sub(tmpLook);
-    spherical.setFromVector3(tmpOff);
-    spherical.theta += mouse.sx * maxRad;
-    spherical.phi = Math.min(Math.PI - 0.01, Math.max(0.01, spherical.phi + mouse.sy * maxRad * 0.6));
-    tmpPos.setFromSpherical(spherical).add(tmpLook);
-    camera.position.copy(tmpPos);
-    camera.lookAt(tmpLook);
+    world.rotation.set(mouse.sy * maxRad * 0.3, mouse.sx * maxRad * 0.5, 0);
 
-    // Glass: each shape rotates and floats at its own speed; scroll slides
-    // them by their parallax factor so near shapes move more than far ones.
-    const drift = current.glass;
-    const scrollP = current.progress;
-    for (const g of glass.items) {
-      const d = g.def;
-      if (!still) {
-        g.mesh.rotation.x += d.rot[0] * dt * drift;
-        g.mesh.rotation.y += d.rot[1] * dt * drift;
-        g.mesh.rotation.z += d.rot[2] * dt * drift;
+    // Camera: keyframe orbit + a few degrees of mouse
+    applyFrame(current.fx, current.fy);
+    look.set(current.clx, current.cly, current.clz);
+    off.set(current.cpx, current.cpy, current.cpz).sub(look);
+    sph.setFromVector3(off);
+    sph.theta += mouse.sx * maxRad;
+    sph.phi = Math.min(Math.PI - 0.05, Math.max(0.05, sph.phi + mouse.sy * maxRad * 0.6));
+    camera.position.setFromSpherical(sph).add(look);
+    camera.lookAt(look);
+
+    // Screens
+    const glow = 0.94 * screensOn;
+    phoneScreen.material.color.setScalar(glow);
+    laptopScreen.material.color.setScalar(glow);
+    L.spill.intensity = 1.1 * screensOn;
+    const s = current.story;
+    phoneScreen.update(s, t);
+    laptopScreen.update(s, t);
+
+    // Connection curve between the devices
+    scene.updateMatrixWorld();
+    P.anchor.getWorldPosition(pA);
+    L.anchor.getWorldPosition(pB);
+    world.worldToLocal(pA);
+    world.worldToLocal(pB);
+    const pts = curve.points;
+    pts[0].copy(pA);
+    pts[3].copy(pB);
+    pts[1].copy(pA).lerp(pB, 0.33).y += 0.55;
+    pts[2].copy(pA).lerp(pB, 0.66).y += 0.5;
+    for (let i = 0; i < CURVE_POINTS; i++) {
+      curve.getPoint(i / (CURVE_POINTS - 1), pB);
+      linePos[i * 3] = pB.x; linePos[i * 3 + 1] = pB.y; linePos[i * 3 + 2] = pB.z;
+    }
+    lineGeo.attributes.position.needsUpdate = true;
+
+    // Pulse along the curve, driven by story (so it reverses on scroll up)
+    let pAlpha = 0;
+    for (const p of CONFIG.pulses) {
+      const raw = lin(s, p.window);
+      if (raw > 0 && raw < 1) {
+        const u = easeInOut(raw);
+        curve.getPoint(p.to === 'laptop' ? u : 1 - u, pulse.position);
+        pAlpha = bump(raw);
+        break;
       }
-      const f = still ? 0 : Math.sin(t * d.speed * Math.max(0.4, drift) + g.phase) * d.amp * drift;
-      g.mesh.position.set(
-        d.pos[0] + (still ? 0 : Math.cos(t * d.speed * 0.6 + g.phase) * d.amp * 0.4),
-        d.pos[1] + f - scrollP * d.parallax * 2.2,
-        d.pos[2]
-      );
     }
-
-    // Particles
-    const pu = particles.mat.uniforms;
-    pu.uTime.value = still ? 0 : t;
-    pu.uOffset.value = current.particles;
-
-    // Screen power-on + typing
-    const pw = powerLevel(t);
-    lap.screenMat.color.copy(white).lerp(warmColor, pw.warm * 0.55).multiplyScalar(pw.b);
-    lap.haloMat.opacity = pw.halo;
-    lap.screenLight.intensity = CONFIG.screenLightIntensity * pw.b;
-    if (state.powerStart !== null && state.poweredAt < 0 && t - state.powerStart >= CONFIG.screen.powerOnDuration * 0.75) {
-      state.poweredAt = t;
-      setActiveScene(sceneFromScroll());
-    }
-    screen.update(t);
-
-    // Canvas opacity per scene (cheap CSS, only written when it changes)
-    const op = Math.round(current.op * 1000) / 1000;
-    if (op !== lastOpacity) { canvas.style.opacity = String(op); lastOpacity = op; }
+    pulse.visible = pAlpha > 0.01;
+    pulse.material.opacity = pAlpha;
+    if (pulseHalo) pulseHalo.material.opacity = 0.55 * pAlpha;
+    lineMat.opacity = (0.1 + 0.2 * pAlpha) * screensOn;
   }
 
   function render() {
@@ -1112,57 +1433,56 @@ function init() {
     }
   }
 
-  function frame() {
-    const dt = Math.min(state.clock.getDelta(), 1 / 20);
-    state.elapsed += dt;
-    if (state.powerStart === null && state.elapsed > CONFIG.screen.powerOnDelay) state.powerStart = state.elapsed;
-    update(dt, state.elapsed);
-    render();
+  // Drop resolution a step if frames are consistently slow.
+  function adapt(rawDt) {
+    const ft = state.frameTimes;
+    ft.push(rawDt * 1000);
+    if (ft.length < 90) return;
+    const avg = ft.reduce((a, b) => a + b, 0) / ft.length;
+    ft.length = 0;
+    const minPR = mobile ? CONFIG.mobile.minPixelRatio : CONFIG.render.minPixelRatio;
+    if (avg > CONFIG.render.slowFrameMs && state.pixelRatio > minPR) {
+      state.pixelRatio = Math.max(minPR, state.pixelRatio - 0.2);
+      applySize();
+    }
   }
 
-  function renderOnce() {
+  function frame() {
+    const raw = state.clock.getDelta();
+    const dt = Math.min(raw, 1 / 20);
+    state.elapsed += dt;
+    update(dt, state.elapsed);
+    render();
+    adapt(raw);
+  }
+
+  function renderStill() {
     if (state.reduced) {
-      // One composed still: screen fully on, code fully typed.
-      state.powerStart = -100; state.poweredAt = 0; state.screenStarted = true;
-      const shot = shots[0];
-      screen.setSnippet(shot.code, state.elapsed, { instant: true });
-      update(0, state.elapsed);
-      screen.update(state.elapsed, true);
+      update(0, 99);
+      phoneScreen.update(STORY_MAX, 99, true);
+      laptopScreen.update(STORY_MAX, 99, true);
     } else {
       update(0, state.elapsed);
     }
     render();
   }
 
-  function updateRunning() {
-    const shouldRun = !state.reduced && state.inView && document.visibilityState === 'visible' && !state.disposed;
-    if (shouldRun === state.running) return;
-    state.running = shouldRun;
-    if (shouldRun) { state.clock.getDelta(); renderer.setAnimationLoop(frame); }
-    else renderer.setAnimationLoop(null);
-  }
-
   /* ----- wire up ----- */
   root.classList.add('hero3d-on');
-  if (state.mobile) root.classList.add('hero3d-lite');
+  if (mobile) root.classList.add('hero3d-lite');
 
   resize();
-  watchSections();
-  watchMouse();
-
-  on(window, 'resize', debounce(resize, 150));
+  on(window, 'resize', debounce(resize, 160));
   on(document, 'visibilitychange', updateRunning);
-  // Late layout shifts (web fonts, images) move section offsets.
-  if (document.readyState !== 'complete') on(window, 'load', () => buildTimeline());
+  if (document.readyState !== 'complete') on(window, 'load', () => !state.disposed && buildTimeline());
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => !state.disposed && buildTimeline());
 
-  // First frame lands immediately; the loop starts unless motion is reduced.
-  renderOnce();
+  renderStill();
   updateRunning();
 }
 
 /* -----------------------------------------------------------------------------
-   Teardown (pagehide) and restore (back/forward cache)
+   Teardown on pagehide, rebuild if restored from the back/forward cache
    -------------------------------------------------------------------------- */
 function destroy() {
   if (!app) return;
@@ -1171,7 +1491,7 @@ function destroy() {
   s.renderer.setAnimationLoop(null);
   s.listeners.forEach(([el, type, fn, opts]) => el.removeEventListener(type, fn, opts));
   s.observers.forEach((o) => o.disconnect());
-  if (s.timeline) { s.timeline.scrollTrigger && s.timeline.scrollTrigger.kill(); s.timeline.kill(); }
+  if (s.timeline) { if (s.timeline.scrollTrigger) s.timeline.scrollTrigger.kill(); s.timeline.kill(); }
 
   const seen = new Set();
   s.scene.traverse((obj) => {
@@ -1180,17 +1500,14 @@ function destroy() {
     mats.forEach((m) => {
       if (seen.has(m)) return;
       seen.add(m);
-      for (const key in m) {
-        const v = m[key];
-        if (v && v.isTexture && !seen.has(v)) { seen.add(v); v.dispose(); }
-      }
-      if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u.value && u.value.isTexture) u.value.dispose();
+      if (m.map && !seen.has(m.map)) { seen.add(m.map); m.map.dispose(); }
       m.dispose();
     });
   });
-  s.screen.dispose();
+  s.textures.forEach((tex) => tex.dispose());
+  s.phoneScreen.dispose();
+  s.laptopScreen.dispose();
   s.envRT.dispose();
-  s.pmrem.dispose();
   s.renderer.dispose();
   root.classList.remove('hero3d-ready');
   app = null;

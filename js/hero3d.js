@@ -174,25 +174,27 @@ const CONFIG = {
     minAspect: 1.25,        // narrower screens widen the fov so devices still fit
     maxFov: 56,
     maxPixelRatio: 2,
-    maxPixels: 4.2e6,       // cap on drawing-buffer pixels (keeps 4K/retina smooth)
-    minPixelRatio: 1,
-    slowFrameMs: 22,        // if average frame time is above this, resolution drops a step
-    screenFps: 30,
+    maxPixels: 8.3e6,       // cap on drawing-buffer pixels: full 2x on 1080p, ~1.5x on 1440p
+    minPixelRatio: 1.25,    // auto-quality never drops below this
+    slowFrameMs: 24,        // median frame time above this (twice in a row) drops resolution a step
+    screenFps: 30,          // max screen redraws per second while the story moves
+    liveFps: 20,            // redraw rate for small idle details (typing dots, pulse rings)
     fogNear: 11,
     fogFar: 24,
   },
 
   mobile: {
     // < 768px wide or coarse pointer
-    maxPixelRatio: 1.5,
-    maxPixels: 1.8e6,
-    minPixelRatio: 0.75,
-    screenFps: 24,
-    phoneCanvas:  [420, 840],
-    laptopCanvas: [960, 600],
+    maxPixelRatio: 2,
+    maxPixels: 3.6e6,
+    minPixelRatio: 1.25,
+    screenFps: 30,
+    phoneCanvas:  [720, 1440],
+    laptopCanvas: [1600, 1000],
   },
 
-  desktopCanvas: { phone: [600, 1200], laptop: [1280, 800] },
+  // Screen texture sizes. Higher = sharper UI text on the device screens.
+  desktopCanvas: { phone: [960, 1920], laptop: [2048, 1280] },
 
   layout: {
     wideMinWidth: 1024,   // matches the story-column CSS breakpoint
@@ -360,7 +362,7 @@ function checkMark(ctx, cx, cy, size, color, width) {
    Screen: a CanvasTexture redrawn from (story, time)
    -------------------------------------------------------------------------- */
 class Screen {
-  constructor({ size, base, draw, mipmaps, anisotropy, fps }) {
+  constructor({ size, base, draw, mipmaps, anisotropy, fps, liveFps }) {
     this.canvas = document.createElement('canvas');
     this.canvas.width = size[0];
     this.canvas.height = size[1];
@@ -368,7 +370,7 @@ class Screen {
     this.scale = size[0] / base[0];
     this.draw = draw;
     this.interval = 1 / fps;
-    this.fps = fps;
+    this.liveFps = liveFps || fps;
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = anisotropy;
@@ -382,7 +384,7 @@ class Screen {
   // Redraws only when the story moved or a live detail ticked, capped at fps.
   update(story, time, force = false) {
     if (!force && time - this.last < this.interval) return;
-    const key = Math.round(story * 500) + ':' + (this.live ? Math.floor(time * this.fps) : 0);
+    const key = Math.round(story * 500) + ':' + (this.live ? Math.floor(time * this.liveFps) : 0);
     if (!force && key === this.key) return;
     this.key = key;
     this.last = time;
@@ -1093,15 +1095,16 @@ async function init() {
   };
 
   // Screens
-  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const aniso = renderer.capabilities.getMaxAnisotropy();
   const fps = mobile ? CONFIG.mobile.screenFps : CONFIG.render.screenFps;
+  const liveFps = CONFIG.render.liveFps;
   const phoneScreen = new Screen({
     size: mobile ? CONFIG.mobile.phoneCanvas : CONFIG.desktopCanvas.phone, base: [600, 1200],
-    draw: drawPhone, mipmaps: !mobile, anisotropy: aniso, fps,
+    draw: drawPhone, mipmaps: true, anisotropy: aniso, fps, liveFps,
   });
   const laptopScreen = new Screen({
     size: mobile ? CONFIG.mobile.laptopCanvas : CONFIG.desktopCanvas.laptop, base: [1280, 800],
-    draw: drawLaptop, mipmaps: !mobile, anisotropy: aniso, fps,
+    draw: drawLaptop, mipmaps: true, anisotropy: aniso, fps, liveFps,
   });
   [phoneScreen, laptopScreen].forEach((sc) => {
     sc.material = new THREE.MeshBasicMaterial({ map: sc.texture, toneMapped: false, color: 0x000000 });
@@ -1183,7 +1186,7 @@ async function init() {
     timeline: null, observers: [], listeners: [],
     running: false, inView: true, firstFrame: false, disposed: false,
     clock: new THREE.Clock(), elapsed: 0,
-    pixelRatio: 1, frameTimes: [],
+    pixelRatio: 1, frameTimes: [], slowRuns: 0,
     textures: [shadowTex, haloTex],
   };
   app = state;
@@ -1433,16 +1436,23 @@ async function init() {
     }
   }
 
-  // Drop resolution a step if frames are consistently slow.
+  // Auto quality. Uses the median frame time over ~2s so one-off hitches
+  // (shader compile, first texture upload) never lower the resolution.
+  // Drops a step only after two slow windows in a row.
   function adapt(rawDt) {
+    if (state.elapsed < 3) return;
     const ft = state.frameTimes;
-    ft.push(rawDt * 1000);
-    if (ft.length < 90) return;
-    const avg = ft.reduce((a, b) => a + b, 0) / ft.length;
+    ft.push(Math.min(rawDt * 1000, 100));
+    if (ft.length < 120) return;
+    const median = ft.slice().sort((a, b) => a - b)[ft.length >> 1];
     ft.length = 0;
-    const minPR = mobile ? CONFIG.mobile.minPixelRatio : CONFIG.render.minPixelRatio;
-    if (avg > CONFIG.render.slowFrameMs && state.pixelRatio > minPR) {
-      state.pixelRatio = Math.max(minPR, state.pixelRatio - 0.2);
+    const R = CONFIG.render;
+    const minPR = Math.min(mobile ? CONFIG.mobile.minPixelRatio : R.minPixelRatio, pickPixelRatio());
+    if (median <= R.slowFrameMs) { state.slowRuns = 0; return; }
+    state.slowRuns += 1;
+    if (state.slowRuns >= 2 && state.pixelRatio > minPR) {
+      state.pixelRatio = Math.max(minPR, state.pixelRatio - 0.25);
+      state.slowRuns = 0;
       applySize();
     }
   }

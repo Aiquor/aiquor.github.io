@@ -149,7 +149,7 @@ a:focus-visible, button:focus-visible { outline-color: var(--primary); }
 .field input, .field select, .field textarea { border-color: #454C58; }
 .field input::placeholder, .field textarea::placeholder { color: #9CA3AF; }
 .field select { color: #C0C7D1; }
-.field option { background: var(--secondary); color: var(--text-primary); }
+.field option { background: var(--surface-raised); color: var(--secondary); }
 #form-status { color: var(--primary-soft); }
 #form-status.error { color: #FCA5A5; }
 .footer-top { border-color: var(--surface-border); }
@@ -252,4 +252,14 @@ h3, .person h3, .project-result strong { font-weight: 600; }
   .hero-description { font-size: 14px; line-height: 1.65; }
   .hero-actions .button { font-size: 11px; padding: 14px 16px; gap: 12px; }
   .hero-actions .text-link { font-size: 11px; gap: 8px; }
+}
+
+/* Keep footer edges aligned with the full-width contact section. */
+.footer { width: 100%; }
+.contact-grid > *, .form-row > .field { min-width: 0; }
+.email-link { max-width: 100%; overflow-wrap: anywhere; }
+.footer-top > div { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .form-footer { flex-wrap: wrap; }
+  .footer-bottom { flex-wrap: wrap; row-gap: 14px; }
 }

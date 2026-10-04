@@ -1,0 +1,255 @@
+/* NeuroSync visual tokens. Geometry and motion stay in style.css and js/app.js. */
+:root {
+  --primary: #CC8066;
+  --secondary: #FFFFFF;
+  --accent: #334155;
+  --background: #101010;
+  --surface: #191C21;
+  --text-primary: #FFFFFF;
+  --text-secondary: #D1D1D1;
+  --border: #383838;
+  --ink: var(--text-primary);
+  --paper: var(--background);
+  --lime: var(--primary);
+  --muted: var(--text-secondary);
+  --line: var(--border);
+  --font: 'Inter', Arial, sans-serif;
+  --font-label: 'JetBrains Mono', monospace;
+  --surface-raised: #24282F;
+  --surface-border: #353B45;
+  --on-surface-muted: #B0B7C2;
+  --primary-soft: #E9B29C;
+}
+
+body, body:has(.hero), main { background: var(--background); }
+.header { color: var(--text-primary); }
+.header nav { color: var(--text-secondary); }
+.header nav a:hover { color: var(--text-primary); }
+.logo-dot, .nav-contact span { color: var(--primary); }
+.nav-contact { border-color: var(--border); }
+a:focus-visible, button:focus-visible { outline-color: var(--primary); }
+
+.hero { background: var(--background); color: var(--text-primary); }
+.hero:before { background: var(--background); }
+.eyebrow { color: var(--text-secondary); }
+.status-light { box-shadow: 0 0 12px #CC806644; }
+.hero-description { color: var(--text-secondary); }
+.button { border-radius: 8px; }
+.button-lime { background: var(--primary); color: var(--text-primary); }
+.button-lime:hover { background: #DA9A83; }
+.text-link { border-color: var(--border); }
+.hero-art { background: var(--surface); border-radius: 8px; }
+.hero-art:after {
+  background: linear-gradient(0deg, #191C21E8, transparent 60%),
+    radial-gradient(ellipse at 50% 50%, transparent, #191C2166);
+}
+.orbital-light { background: radial-gradient(ellipse at 45% 35%, #CC806633, transparent 58%); }
+.art-caption { color: #C9B1A6; }
+.hero-bottom { color: var(--text-secondary); border-color: var(--border); }
+.hero-bottom a { color: var(--text-primary); }
+
+.tools-strip { background: #EFE5D8; }
+.tools-label { color: var(--text-secondary); }
+.marquee-track span { color: #9CA3AF; }
+.section-heading h2 span { color: var(--text-secondary); }
+.section-heading > p { color: var(--text-secondary); }
+
+/* Existing bento tiles retain their spans, dimensions, and illustrations. */
+.service { border-radius: 8px; box-shadow: inset 0 0 0 1px var(--surface-border); }
+.service-agent, .service-mcp, .service-security, .service-tools {
+  background: var(--surface);
+  color: var(--secondary);
+}
+.service:hover { box-shadow: inset 0 0 0 1px #6E5148, 0 8px 30px #11182712; }
+.card-top { color: var(--on-surface-muted); }
+.circle-arrow { border-color: #CC806655; color: var(--primary-soft); }
+.service:hover .circle-arrow { background: var(--primary); color: var(--text-primary); }
+.card-bottom p, .service-mcp .card-bottom p { color: var(--on-surface-muted); }
+.task-node { background: var(--surface-raised); border-color: var(--surface-border); box-shadow: 0 6px 16px #00000018; }
+.connector { background: #896353; }
+.connector:after { background: var(--primary); }
+.agent-core {
+  background: var(--primary);
+  color: var(--surface);
+  box-shadow: 0 0 0 9px #CC806622, 0 0 0 20px #CC806611;
+}
+.check { color: var(--primary-soft); }
+.mcp-diagram > span { border-color: #CC806655; color: var(--primary-soft); }
+.mcp-diagram > span:nth-of-type(2) { background: var(--primary); color: var(--surface); box-shadow: 0 0 35px #CC806618; }
+.mcp-diagram > i { border-color: #CC806655; }
+.security-diagram svg { color: var(--primary-soft); }
+.security-ring { border-color: #CC806644; box-shadow: 0 0 0 17px #CC806611, 0 0 0 34px #CC806608; }
+.tool-window { background: var(--surface-raised); border-color: var(--surface-border); border-radius: 8px; box-shadow: 0 16px 40px #00000024; }
+.window-bar { border-color: var(--surface-border); }
+.window-bar i { background: #9A6A58; }
+.window-bar span { color: var(--on-surface-muted); }
+.window-sidebar { border-color: var(--surface-border); }
+.window-sidebar b, .window-sidebar i { background: #5A4A45; }
+.window-sidebar b { background: var(--primary); }
+.dashboard-bars { border-color: var(--surface-border); }
+.dashboard-bars i { background: #9E6450; }
+.dashboard-bars i:nth-child(2n) { background: var(--primary); }
+.dashboard-bars i:nth-child(3n) { background: var(--primary-soft); }
+
+.work { background: #EFE5D8; }
+.project, .project:nth-child(2), .project:nth-child(3) {
+  background: var(--surface);
+  color: var(--secondary);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--surface-border);
+}
+.project:nth-child(2) { background: #20242B; }
+.project:nth-child(3) { background: #292D35; }
+.project-toggle { color: var(--secondary); }
+.project-plus { color: var(--primary-soft); }
+.project-visual {
+  border-radius: 8px;
+  background: radial-gradient(ellipse at 30% 40%, #CC806633, transparent 60%), #302A2B;
+}
+.data-visual { background: radial-gradient(ellipse at 75% 20%, #CC806633, transparent), #262D38; }
+.audit-visual { background: radial-gradient(ellipse at 50% 50%, #CC806633, transparent), #32282A; }
+.inbox-card, .query-card, .audit-card {
+  background: var(--surface-raised);
+  color: var(--secondary);
+  border-radius: 8px;
+  box-shadow: 0 16px 25px #00000030, inset 0 0 0 1px var(--surface-border);
+}
+.inbox-title { border-color: var(--surface-border); }
+.inbox-title > span:last-child { color: var(--primary-soft); }
+.inbox-title .status-light, .query-card i { background: var(--primary); }
+.inbox-row { color: var(--on-surface-muted); border-color: var(--surface-border); }
+.inbox-row b { background: #CC80661F; color: var(--primary-soft); }
+.inbox-row b.review { background: #33415580; color: #CBD5E1; }
+.inbox-foot { color: var(--on-surface-muted); }
+.project-category { color: var(--primary-soft); }
+.project-copy > p { color: var(--on-surface-muted); }
+.project-result { border-color: var(--surface-border); }
+.project-result > span { color: var(--on-surface-muted); }
+.query-card > span, .query-card > div > span { color: var(--on-surface-muted); }
+.query-lines { background: repeating-linear-gradient(to bottom, #454B55 0 2px, transparent 2px 10px); }
+.audit-check { background: #CC806626; color: var(--primary-soft); }
+.audit-card > span, .audit-card > div:last-child { color: var(--on-surface-muted); }
+
+.approach-title > p, .principle p, .team > p { color: var(--text-secondary); }
+.dark-link, .principle, .principle:last-child { border-color: var(--border); }
+.principle-symbol { color: var(--primary); }
+.initials { background: #F5E8E2; color: #874830; }
+.person:nth-child(3) .initials { background: #E2E8F0; color: var(--accent); }
+.person:nth-child(4) .initials { background: #ECEEF2; color: var(--accent); }
+.person div > span { color: var(--text-secondary); }
+.inline-photo img { filter: none; }
+
+.contact, .footer { background: var(--surface); color: var(--secondary); }
+.contact:before { background: radial-gradient(ellipse at 5% 20%, #CC806618, transparent 60%); }
+.contact .eyebrow, .contact-copy > p:not(.eyebrow) { color: var(--on-surface-muted); }
+.email-link { border-color: var(--surface-border); }
+.response-note, .form-footer > span { color: var(--on-surface-muted); }
+.field label { color: #D1D5DB; }
+.field label > span { color: #A0A8B5; }
+.field input, .field select, .field textarea { border-color: #454C58; }
+.field input::placeholder, .field textarea::placeholder { color: #9CA3AF; }
+.field select { color: #C0C7D1; }
+.field option { background: var(--secondary); color: var(--text-primary); }
+#form-status { color: var(--primary-soft); }
+#form-status.error { color: #FCA5A5; }
+.footer-top { border-color: var(--surface-border); }
+.footer-top p, .footer-top > div, .footer-bottom { color: var(--on-surface-muted); }
+
+/* Mono metadata follows the reference without changing its existing type scale. */
+.eyebrow, .card-top, .project-category, .tools-label, .art-caption,
+.field label, .window-bar span, .inbox-title > span:last-child,
+.query-card > span, .audit-card > span {
+  font-family: var(--font-label);
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .header nav { background: var(--background); border-color: var(--border); }
+  .menu-toggle { color: var(--text-primary); }
+}
+
+/* Connected workflow hero. Local Phosphor SVGs keep the graphic crisp at every size. */
+.workflow-art { background: #191C21; }
+.workflow-art:after { background: linear-gradient(0deg, #191C2155, transparent 25%); }
+.workflow-art .orbital-light { background: radial-gradient(ellipse at 50% 50%, #33415566, transparent 64%); }
+.workflow-diagram { position: absolute; width: 100%; height: 100%; inset: 0; }
+.workflow-kicker { fill: #9CA3AF; font: 600 9px 'JetBrains Mono', monospace; letter-spacing: 1.6px; }
+.workflow-route { stroke: #566070; stroke-width: 1; }
+.workflow-pulse { stroke: #CC8066; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 3 97; animation: workflow-transfer 4.8s linear infinite; }
+.pulse-1 { animation-delay: -1.2s; }
+.pulse-2 { animation-delay: -2.4s; }
+.pulse-3 { animation-delay: -3.6s; }
+.workflow-node { transform-box: fill-box; transform-origin: center; transition: transform .7s ease-out; }
+.workflow-node:hover { transform: scale(1.05); }
+.workflow-node rect { fill: #24282F; stroke: #414A58; stroke-width: 1; }
+.workflow-node use { color: #CBD5E1; }
+.workflow-hub rect { fill: #252A33; stroke: #CC806688; }
+.workflow-hub use { color: #CC8066; }
+.workflow-halo { stroke: #CC8066; stroke-opacity: .15; animation: workflow-glow 4.8s ease-in-out infinite; }
+.workflow-hub-label { fill: #FFFFFF; font: 500 15px 'Inter', sans-serif; }
+.workflow-status { fill: #B0B7C2; font: 400 9px 'JetBrains Mono', monospace; }
+.workflow-tool-label { fill: #E5E7EB; font: 500 12px 'Inter', sans-serif; }
+.workflow-tool-note { fill: #9CA3AF; font: 400 9px 'JetBrains Mono', monospace; }
+.workflow-art .art-caption { color: #B0B7C2; }
+.workflow-art .art-caption svg { fill: currentColor; }
+@keyframes workflow-transfer { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes workflow-glow { 0%, 100% { stroke-opacity: .12; } 50% { stroke-opacity: .36; } }
+@media (max-width: 760px) {
+  .workflow-tool-label { font-size: 18px; }
+  .workflow-tool-note { display: none; }
+  .workflow-hub-label { font-size: 18px; }
+  .workflow-status { font-size: 12px; }
+  .workflow-kicker { font-size: 12px; letter-spacing: 1px; }
+}
+
+
+/* The decorative fluid sits behind every section without changing page geometry. */
+body { isolation: isolate; }
+.site-fluid-background { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 1; background: radial-gradient(ellipse at 30% 60%, #F47719, #632C0B 45%, #090401 85%); }
+#main { background: transparent; }
+.hero, .hero:before { background: transparent; }
+.tools-strip, .work { background: transparent; }
+.cube-wave-fallback { width: 100%; height: 100%; background: radial-gradient(ellipse at center, #33415522, transparent 70%); }
+
+/* Keep the asynchronous canvas in a stable layer above the body paint. */
+body > .header, body > main, body > .footer { position: relative; z-index: 1; }
+
+/* Dark reading surfaces leave the orange fluid visible in the gutters. */
+.header { background: var(--background); }
+.hero-copy, .hero-bottom, .section-heading, .approach-title, .principles, .team {
+  background: var(--background);
+  border-radius: 12px;
+  box-shadow: 0 0 0 20px var(--background);
+}
+.hero-copy { border-radius: 16px; box-shadow: 0 0 0 24px var(--background); }
+.tools-strip { background: var(--background); }
+body { font-weight: 500; }
+h1, h2, .hero h1 { font-weight: 700; }
+h3, .person h3, .project-result strong { font-weight: 600; }
+.header nav, .nav-contact, .text-link, .hero-bottom, .button { font-weight: 600; }
+@media (max-width: 760px) {
+  .hero-copy, .hero-bottom, .section-heading, .approach-title, .principles, .team {
+    box-shadow: 0 0 0 14px var(--background);
+  }
+}
+
+/* A compact hero panel gives the adjacent workflow graphic room to breathe. */
+.hero-copy {
+  max-width: 620px;
+  width: 100%;
+  align-self: start;
+  padding: 28px;
+  box-shadow: none;
+}
+.hero h1 { font-size: clamp(38px, 4.45vw, 64px); margin: 24px 0 20px; white-space: normal; }
+.hero h1 > span { color: #FFFFFF; }
+.hero-actions { margin-top: 28px; gap: 18px; flex-wrap: wrap; }
+.button-lime, .service:hover .circle-arrow { color: #101010; }
+@media (max-width: 760px) {
+  .hero-copy { padding: 20px; box-shadow: none; }
+  .hero h1 { font-size: clamp(30px, 8.2vw, 36px); }
+  .hero-actions { gap: 14px; }
+  .hero-description { font-size: 14px; line-height: 1.65; }
+  .hero-actions .button { font-size: 11px; padding: 14px 16px; gap: 12px; }
+  .hero-actions .text-link { font-size: 11px; gap: 8px; }
+}

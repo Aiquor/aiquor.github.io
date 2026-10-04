@@ -1,0 +1,33 @@
+/* Omit Tailwind preflight so the existing landing-page layout stays intact. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../components";
+@source "../src";
+@source "../index.html";
+@theme inline {
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-background: var(--background);
+  --color-foreground: var(--text-primary);
+}
+@theme inline {
+  --color-card: var(--surface);
+  --color-card-foreground: var(--secondary);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--secondary);
+  --color-primary-foreground: var(--text-primary);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: #E8DCCB;
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent-foreground: var(--secondary);
+  --color-destructive: #B3261E;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}

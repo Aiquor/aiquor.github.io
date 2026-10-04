@@ -175,7 +175,7 @@ a:focus-visible, button:focus-visible { outline-color: var(--primary); }
 .workflow-diagram { position: absolute; width: 100%; height: 100%; inset: 0; }
 .workflow-kicker { fill: #9CA3AF; font: 600 9px 'JetBrains Mono', monospace; letter-spacing: 1.6px; }
 .workflow-route { stroke: #566070; stroke-width: 1; }
-.workflow-pulse { stroke: #CC8066; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 3 97; animation: workflow-transfer 4.8s linear infinite; }
+.workflow-pulse { stroke: #CC8066; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 6 94; animation: workflow-transfer 4.8s linear infinite; }
 .pulse-1 { animation-delay: -1.2s; }
 .pulse-2 { animation-delay: -2.4s; }
 .pulse-3 { animation-delay: -3.6s; }
@@ -192,7 +192,14 @@ a:focus-visible, button:focus-visible { outline-color: var(--primary); }
 .workflow-tool-note { fill: #9CA3AF; font: 400 9px 'JetBrains Mono', monospace; }
 .workflow-art .art-caption { color: #B0B7C2; }
 .workflow-art .art-caption svg { fill: currentColor; }
-@keyframes workflow-transfer { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+/* Orange requests travel into the agent; white results travel back out. */
+@keyframes workflow-transfer {
+  0% { stroke-dashoffset: 100; stroke: #CC8066; }
+  44% { stroke-dashoffset: 0; stroke: #CC8066; }
+  50% { stroke-dashoffset: 0; stroke: #FFFFFF; }
+  94% { stroke-dashoffset: 100; stroke: #FFFFFF; }
+  100% { stroke-dashoffset: 100; stroke: #CC8066; }
+}
 @keyframes workflow-glow { 0%, 100% { stroke-opacity: .12; } 50% { stroke-opacity: .36; } }
 @media (max-width: 760px) {
   .workflow-tool-label { font-size: 18px; }

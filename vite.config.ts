@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
   base: './',
-  publicDir: false,
+  publicDir: 'public',
 });

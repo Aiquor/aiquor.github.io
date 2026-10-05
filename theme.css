@@ -308,6 +308,9 @@ h3, .person h3, .project-result strong { font-weight: 600; }
 .whatsapp-link:hover { color: var(--primary-soft); }
 
 .tools-strip .marquee { width: 100%; }
-.marquee-track > div { gap: 80px; padding-right: 80px; }
+.marquee-track { animation-name: logo-marquee; animation-duration: 54s; will-change: transform; }
+.marquee-track > div { flex-shrink: 0; min-width: var(--logo-strip-width, 0px); justify-content: space-around; gap: 80px; padding-right: 80px; }
+.marquee:hover .marquee-track { animation-play-state: running; }
+@keyframes logo-marquee { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
 .tool-logo { display: block; width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; filter: brightness(0) invert(1); opacity: .85; }
 @media (max-width: 760px) { .marquee-track > div { gap: 48px; padding-right: 48px; } .tool-logo { width: 36px; height: 36px; } }

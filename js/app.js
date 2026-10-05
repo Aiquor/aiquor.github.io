@@ -36,6 +36,20 @@ document.querySelectorAll('[data-interest]').forEach(link => link.addEventListen
 }));
 document.querySelector('#year').textContent = new Date().getFullYear();
 
+// Keep a complete duplicate beyond the viewport and scroll at the same gentle
+// pixel speed on phones and desktops, regardless of the strip's width.
+const logoMarquee = document.querySelector('.tools-strip .marquee');
+const logoTrack = logoMarquee?.querySelector('.marquee-track');
+if (logoTrack) {
+  const sizeLogoLoop = () => {
+    logoTrack.style.setProperty('--logo-strip-width', `${logoMarquee.clientWidth}px`);
+    const loopWidth = logoTrack.firstElementChild.getBoundingClientRect().width;
+    logoTrack.style.animationDuration = `${loopWidth / 14}s`;
+  };
+  sizeLogoLoop();
+  new ResizeObserver(sizeLogoLoop).observe(logoMarquee);
+}
+
 const form = document.querySelector('#contact-form');
 const status = document.querySelector('#form-status');
 const submit = document.querySelector('#submit-btn');

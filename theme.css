@@ -288,8 +288,9 @@ h3, .person h3, .project-result strong { font-weight: 600; }
   .footer-bottom { flex-wrap: wrap; row-gap: 14px; }
 }
 
-/* Team introductions keep the existing four-column desktop arrangement. */
+/* Four team profiles share the existing desktop grid beneath the introduction. */
 .team { align-items: start; }
+.team-intro { grid-column: 1 / -1; max-width: 640px; }
 .team-intro h3 { font-size: 26px; letter-spacing: -.03em; margin-bottom: 16px; }
 .team-intro p, .person-bio { font-size: 13px; line-height: 1.75; color: var(--text-secondary); }
 .person { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 13px; }

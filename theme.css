@@ -306,3 +306,8 @@ h3, .person h3, .project-result strong { font-weight: 600; }
 .whatsapp-link { display: flex; align-items: center; gap: 20px; width: fit-content; max-width: 100%; margin-top: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--surface-border); font-size: 16px; font-weight: 600; }
 .whatsapp-link svg { fill: var(--primary); flex-shrink: 0; }
 .whatsapp-link:hover { color: var(--primary-soft); }
+
+.tools-strip .marquee { width: 100%; }
+.marquee-track > div { gap: 80px; padding-right: 80px; }
+.tool-logo { display: block; width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; filter: brightness(0) invert(1); opacity: .85; }
+@media (max-width: 760px) { .marquee-track > div { gap: 48px; padding-right: 48px; } .tool-logo { width: 36px; height: 36px; } }

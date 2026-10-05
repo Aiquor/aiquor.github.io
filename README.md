@@ -94,13 +94,20 @@ metadata, and sharing-image dimensions. CI runs this check before publishing.
 
 ### Domain and email setup
 
-`getaiquor.com` is a candidate: an RDAP lookup on October 5, 2026 returned no
-registration record. This is not a reservation or a guaranteed availability check.
-Confirm availability and annual pricing at a registrar before purchasing.
-`hello@getaiquor.com` is the proposed branded address once the domain and a
-mailbox are set up; it is not currently published or used for enquiries.
+Production uses `https://getaiquor.com`, registered with Cloudflare on
+October 5, 2026. The domain is verified for the Aiquor organization in GitHub
+Pages. Keep its `_github-pages-challenge-aiquor` TXT record to retain verification.
+The apex has GitHub Pages' four A and four AAAA records; `www` points directly
+to `aiquor.github.io`. These records use DNS-only mode. GitHub Pages provides
+the HTTPS certificate and redirects `www` to the apex.
 
-After purchase, configure the custom domain in GitHub Pages and its required
+`hello@getaiquor.com` receives mail through Cloudflare Email Routing and forwards
+to the site owner's verified Gmail inbox. This is an incoming address, not a
+separate mailbox or an outbound SMTP account. Cloudflare manages its MX, SPF,
+and DKIM records. FormSubmit was activated for this address and origin, and a
+synthetic enquiry was delivered to the destination inbox on October 5, 2026.
+
+For any future domain change, configure the custom domain in GitHub Pages and its required
 DNS records, following [GitHub's domain instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
 Only after DNS and HTTPS are ready, set `VITE_SITE_URL` and rebuild. Custom-domain
 builds also emit CNAME. Set up the mailbox with your email provider and configure

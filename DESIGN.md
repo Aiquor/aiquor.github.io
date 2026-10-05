@@ -82,3 +82,12 @@ Keep the connected-workflow hero graphic. Use FluidFieldBackground as a fixed, f
 
 ## Text readability
 Use solid black reading panels with softly rounded corners behind hero copy, section headings, approach text, and team details. Keep the full-opacity orange fluid animation visible in surrounding gutters. Use Inter 700 for major headings, 600 for subheadings and navigation, and 500 for body copy. Keep primary text white and supporting text light gray. Use a compact hero text panel capped at 620px with smaller typography so it does not crowd the adjacent workflow graphic. Preserve existing content, section structure, and animation behavior.
+
+## Conversion and readability refinement — October 2026
+
+Preserve the workflow hero, palette, and flowing background pattern. Lower the
+background opacity to 0.72 and its brightness to 0.78 so content leads. Use
+96px desktop / 64px mobile chapter spacing. The project accordion retains three
+cases with horizontal headings and deliberate click/keyboard activation. Keep
+the illustrations legible and label their illustrative status. Shared service
+pages use the same palette, typography, and panels with a light static background.

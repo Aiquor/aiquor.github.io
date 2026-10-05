@@ -60,7 +60,78 @@ The background is deferred until after page load, fills the viewport on desktop 
 
 The page retains GSAP animations and the existing FormSubmit endpoint. Production email delivery requires the recipient's FormSubmit activation. Images and supporting assets live in `/assets`; the approved palette is recorded in `DESIGN.md`.
 
-The existing connected-workflow hero is preserved. FluidFieldBackground is an aria-hidden, pointer-transparent background behind the whole page, at full opacity, with white text, solid black reading panels, and open gutters to reveal the animation.
+The existing connected-workflow hero is preserved. FluidFieldBackground is an aria-hidden, pointer-transparent background behind the whole page, with reduced intensity, white text, solid black reading panels, and open gutters to reveal the animation.
+
+## Service pages and site configuration
+
+The homepage links to four dedicated service pages: AI agents, MCP integrations,
+cybersecurity, and internal tools. Edit their shared template and content in
+`scripts/generate-pages.mjs`; `npm run dev` and `npm run build` regenerate them.
+The privacy page uses the same template. The homepage remains in `index.html`.
+New layout refinements are in `styles/improvements.css`.
+
+The background keeps its existing flowing pattern with lower brightness and
+opacity. Case studies open only on click or keyboard activation, with horizontal
+headings. Their illustrations are explicitly labeled, and precise time-saving
+claims are withheld until measurement dates and methodology are supplied.
+Real client screenshots, project dates, approved quotes, and remaining team
+portraits/profile URLs should be added only from verified material.
+
+Copy `.env.example` to `.env.local` for local configuration. Production uses the
+same names as GitHub repository Actions variables:
+
+- `VITE_SITE_URL`: the live HTTPS origin; defaults to `https://aiquor.github.io`.
+- `VITE_CONTACT_EMAIL`: an existing, activated FormSubmit recipient; defaults to
+  the working contact address. Updates page copy, mail links, structured data,
+  and the form endpoint together.
+- `VITE_GA_MEASUREMENT_ID`: a public GA4 Web-stream ID starting with `G-`.
+  Blank keeps Google Analytics disabled.
+
+The build emits a canonical URL per page, Open Graph/Twitter metadata, a 1200 ×
+630 sharing image, Organization/Service structured data, robots.txt, and a
+six-page sitemap. `npm run check` verifies built links, local assets, anchors,
+metadata, and sharing-image dimensions. CI runs this check before publishing.
+
+### Domain and email setup
+
+`getaiquor.com` is a candidate: an RDAP lookup on October 5, 2026 returned no
+registration record. This is not a reservation or a guaranteed availability check.
+Confirm availability and annual pricing at a registrar before purchasing.
+`hello@getaiquor.com` is the proposed branded address once the domain and a
+mailbox are set up; it is not currently published or used for enquiries.
+
+After purchase, configure the custom domain in GitHub Pages and its required
+DNS records, following [GitHub's domain instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
+Only after DNS and HTTPS are ready, set `VITE_SITE_URL` and rebuild. Custom-domain
+builds also emit CNAME. Set up the mailbox with your email provider and configure
+its MX and authentication records before changing `VITE_CONTACT_EMAIL`.
+FormSubmit activation is needed again for a new recipient or form origin.
+
+### Analytics setup
+
+Follow [Google's setup guide](https://support.google.com/analytics/answer/9304153?hl=en):
+create an Analytics account/property, add a Web data stream for the live site,
+and copy its `G-…` measurement ID. Set `VITE_GA_MEASUREMENT_ID` as an Actions
+variable and rebuild. The measurement ID is public; do not provide passwords
+or API secrets. The privacy page reflects whether analytics is enabled.
+
+Events in `js/analytics.js` are `booking_click`, `case_study_open`, and
+`generate_lead`. A booking click records a click, not a completed appointment.
+The lead event runs only after FormSubmit reports success. Custom event payloads
+contain action types, placement/case identifiers, and page paths, never form
+contents. Do Not Track and Global Privacy Control skip the analytics provider.
+The local `aiquor:analytics` event remains available for verification.
+
+### Verification completed October 5, 2026
+
+Production compilation and the six-page build checks pass. DOM-based runtime
+checks covered shared navigation, booking events, deliberate accordion selection,
+and form success/failure/honeypot handling. The site was visually checked on
+desktop and at a 390-pixel phone width. FormSubmit activation was completed for
+the current live origin and contact address; a labeled test enquiry was verified
+in the recipient's connected Gmail inbox. A local mobile Lighthouse 13.4.1 audit scored 97 for performance, 100 for
+accessibility, 100 for best practices, and 100 for SEO (LCP 2.3s, TBT 10ms,
+CLS 0). These are lab results for the local production preview, not field data.
 
 ## Publishing
 

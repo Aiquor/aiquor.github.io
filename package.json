@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "prebuild": "node scripts/generate-pages.mjs",
+    "predev": "node scripts/generate-pages.mjs",
+    "check": "node scripts/check-build.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

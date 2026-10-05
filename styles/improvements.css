@@ -1,0 +1,117 @@
+/* Aiquor's existing palette, hero graphic, and supporting motion stay intact. */
+.chapter { padding-block: 96px; }
+.hero { padding-top: 60px; min-height: 640px; }
+.site-fluid-background { opacity: .72; }
+.hero-description { max-width: 48ch; }
+.hero-actions .button { max-width: 100%; gap: 14px; line-height: 1.5; }
+.button svg, .text-link svg { flex: 0 0 auto; }
+.booking-note { margin-top: 20px; color: var(--on-surface-muted); font-size: 12px; line-height: 1.7; max-width: 48ch; }
+.nav-contact.nav-booking { max-width: 230px; }
+.contact-booking { margin-top: 24px; gap: 16px; line-height: 1.5; }
+.contact-copy .contact-alternative { margin-top: 22px; font-size: 13px; }
+.contact-copy .email-link { font-size: clamp(16px, 2.1vw, 26px); }
+.form-privacy { color: var(--on-surface-muted); font-size: 12px; line-height: 1.7; margin-top: 20px; }
+.form-privacy a, .privacy-content a { text-decoration: underline; text-underline-offset: 4px; }
+
+/* One deliberate selection at a time; titles remain horizontal at every size. */
+.project-accordion { display: flex; flex-direction: column; height: auto; gap: 14px; }
+.project, .project.active { display: block; flex: none; }
+.project-toggle { width: 100%; min-height: 70px; padding: 22px 28px; flex-direction: row; gap: 20px; text-align: left; }
+.project-toggle > span:first-child { writing-mode: horizontal-tb; transform: none; font-size: 18px; white-space: normal; }
+.project-body { width: 100%; min-width: 0; display: none; padding: 0 28px 28px; opacity: 1; }
+.project.active .project-body { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); column-gap: 36px; align-items: start; }
+.project-visual { grid-column: 1; grid-row: 1; height: 280px; margin: 0; }
+.visual-caption { grid-column: 1; grid-row: 2; font-size: 11px; line-height: 1.6; margin-top: 14px; color: var(--on-surface-muted); }
+.project-copy { grid-column: 2; grid-row: 1 / 3; min-width: 0; }
+.project-copy h3 { font-size: clamp(25px, 2.3vw, 34px); line-height: 1.2; }
+.project-copy > p { font-size: 14px; max-width: 56ch; }
+.project-result { flex-direction: column; align-items: flex-start; gap: 8px; margin-block: 22px; }
+.project-result > span { font-size: 12px; line-height: 1.5; }
+.case-details { margin: 0; display: grid; gap: 18px; }
+.case-details dt { color: var(--primary-soft); font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+.case-details dd { margin: 0; color: var(--on-surface-muted); font-size: 13px; line-height: 1.7; }
+
+.delivery-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.delivery-step, .timeline-note { background: var(--surface); border: 1px solid var(--surface-border); padding: 28px; border-radius: 12px; }
+.step-number { font: 600 11px var(--font-label); color: var(--primary-soft); }
+.delivery-step h3 { margin-top: 28px; font-size: 24px; line-height: 1.25; letter-spacing: -.03em; }
+.delivery-step p, .timeline-note p { color: var(--on-surface-muted); font-size: 14px; line-height: 1.8; margin-top: 14px; }
+.timeline-note { margin-top: 18px; display: grid; grid-template-columns: 1fr 2fr; gap: 32px; align-items: start; }
+.timeline-note h3 { font-size: 22px; line-height: 1.3; }
+.timeline-note p { margin: 0; }
+.faq-list { background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding-inline: 28px; }
+.faq-list details + details { border-top: 1px solid var(--border); }
+.faq-list summary { padding: 24px 4px; font-size: 17px; font-weight: 600; cursor: pointer; line-height: 1.6; }
+.faq-list summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 4px; }
+.faq-list details p { padding: 0 4px 26px; color: var(--text-secondary); font-size: 14px; line-height: 1.8; max-width: 80ch; }
+.team-avatar { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--surface-border); object-fit: cover; }
+.person { grid-template-columns: 56px minmax(0, 1fr); }
+.person-profile { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; width: fit-content; min-height: 44px; color: var(--primary-soft); font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }
+.footer-services { display: flex; flex-wrap: wrap; gap: 18px 26px; padding-block: 24px; border-bottom: 1px solid var(--surface-border); font-size: 12px; color: var(--on-surface-muted); }
+.footer-services a:hover { color: var(--text-primary); }
+
+/* Static service pages share the landing page's design without a WebGL download. */
+.service-page { background: #101010; }
+.service-page main { background: radial-gradient(ellipse at 100% 0, #cc806614, transparent 55%), #101010; }
+.service-hero { padding-block: 88px 64px; }
+.service-hero h1 { max-width: 950px; font-size: clamp(36px, 5vw, 68px); line-height: 1.08; letter-spacing: -.045em; margin: 26px 0; }
+.service-hero .service-description { font-size: 18px; line-height: 1.8; color: var(--text-secondary); max-width: 64ch; }
+.breadcrumb { font-size: 12px; color: var(--on-surface-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.breadcrumb a { text-decoration: underline; text-underline-offset: 4px; }
+.service-content { padding-block: 40px 96px; }
+.service-page .section-heading { box-shadow: none; background: transparent; }
+.service-page .section-heading h2 { font-size: clamp(28px, 3.5vw, 44px); }
+.service-page .delivery-grid { margin-block: 28px 60px; }
+.service-use-case { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 12px; padding: 32px; margin-bottom: 60px; }
+.service-use-case h2 { font-size: 28px; margin-bottom: 18px; }
+.service-use-case p { max-width: 72ch; font-size: 16px; line-height: 1.8; color: var(--text-secondary); }
+.service-use-case p + p { margin-top: 14px; }
+.service-cta { padding: 36px; background: var(--surface); border-radius: 12px; margin-top: 60px; }
+.service-cta h2 { font-size: 32px; line-height: 1.2; }
+.service-cta p { margin-top: 16px; color: var(--on-surface-muted); font-size: 16px; line-height: 1.8; max-width: 65ch; }
+.privacy-content { max-width: 800px; }
+.privacy-content h2 { font-size: 24px; margin-top: 32px; margin-bottom: 14px; }
+.privacy-content p { color: var(--text-secondary); font-size: 15px; line-height: 1.8; }
+.privacy-content p + p { margin-top: 16px; }
+.service-page .header { max-width: none; }
+
+@media (max-width: 1100px) {
+  .header nav { gap: 20px; }
+  .project.active .project-body { column-gap: 24px; }
+  .delivery-step { padding: 22px; }
+}
+@media (max-width: 760px) {
+  .chapter { padding-block: 64px; }
+  .header { display: grid; grid-template-columns: 1fr auto; height: auto; padding-block: 18px; gap: 14px; }
+  .header .wordmark { grid-column: 1; grid-row: 1; }
+  .header .menu-toggle { grid-column: 2; grid-row: 1; }
+  .header .nav-booking { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; margin: 0; font-size: 13px; padding: 12px; }
+  .header nav { top: 100%; }
+  .header nav a { min-height: 44px; display: flex; align-items: center; }
+  .hero { padding-top: 28px; min-height: auto; }
+  .hero-actions { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .hero-actions .button { font-size: 13px; padding: 14px; width: 100%; }
+  .hero-actions .text-link { font-size: 13px; }
+  .booking-note { font-size: 12px; }
+  .contact-booking { font-size: 13px; padding: 16px; }
+  .project-toggle { padding: 20px; min-height: 64px; }
+  .project-toggle > span:first-child { font-size: 16px; }
+  .project-body { padding: 0 20px 24px; }
+  .project.active .project-body { grid-template-columns: 1fr; }
+  .project-visual { height: 230px; }
+  .project-copy { grid-column: 1; grid-row: 3; margin-top: 24px; }
+  .project-copy > p { font-size: 14px; }
+  .delivery-grid { grid-template-columns: 1fr; }
+  .delivery-step h3 { margin-top: 20px; }
+  .timeline-note { grid-template-columns: 1fr; gap: 12px; padding: 24px; }
+  .faq-list { padding-inline: 20px; }
+  .faq-list summary { font-size: 16px; }
+  .service-hero { padding-block: 48px 24px; }
+  .service-hero .service-description { font-size: 16px; }
+  .service-content { padding-block: 32px 64px; }
+  .service-use-case, .service-cta { padding: 24px; }
+  .service-cta h2 { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-fluid-background { opacity: .6; }
+}

@@ -80,7 +80,13 @@ if (window.gsap && window.ScrollTrigger) {
     document.querySelectorAll('.service').forEach(element => {
       gsap.from(element, { y: 35, opacity: 0, duration: .9, ease: 'power3.out', scrollTrigger: { trigger: element, start: 'top 92%', once: true } });
     });
-    document.querySelectorAll('.project-visual, .inline-photo').forEach(element => {
+    // Closed accordion panels have no measurable bounds on mobile. Use the
+    // shared accordion for their entrance so opening a panel cannot leave its
+    // visual dimmed by a scroll trigger initialized at zero height.
+    document.querySelectorAll('.project-visual').forEach(element => {
+      gsap.fromTo(element, { scale: .8 }, { scale: 1, ease: 'none', scrollTrigger: { trigger: element.closest('.project-accordion'), start: 'top bottom', end: 'top 55%', scrub: 1 } });
+    });
+    document.querySelectorAll('.inline-photo').forEach(element => {
       gsap.fromTo(element, { scale: .8 }, { scale: 1, ease: 'none', scrollTrigger: { trigger: element, start: 'top bottom', end: 'top 55%', scrub: 1 } });
       gsap.to(element, { opacity: .2, filter: 'brightness(.65)', ease: 'none', scrollTrigger: { trigger: element, start: 'bottom 20%', end: 'bottom top', scrub: 1 } });
     });

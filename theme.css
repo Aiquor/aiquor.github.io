@@ -115,6 +115,7 @@ a:focus-visible, button:focus-visible { outline-color: var(--primary); }
 .project:nth-child(3) { background: #292D35; }
 .project-toggle { color: var(--secondary); }
 .project-plus { color: var(--primary-soft); }
+.project-body { min-width: 0; flex: 1; }
 .project-visual {
   border-radius: 8px;
   background: radial-gradient(ellipse at 30% 40%, #CC806633, transparent 60%), #302A2B;

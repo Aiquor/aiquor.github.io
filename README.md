@@ -89,7 +89,7 @@ same names as GitHub repository Actions variables:
 
 The build emits a canonical URL per page, Open Graph/Twitter metadata, a 1200 ×
 630 sharing image, Organization/Service structured data, robots.txt, and a
-six-page sitemap. `npm run check` verifies built links, local assets, anchors,
+nine-page sitemap. `npm run check` verifies built links, local assets, anchors,
 metadata, and sharing-image dimensions. CI runs this check before publishing.
 
 ### Domain and email setup
@@ -128,6 +128,16 @@ The lead event runs only after FormSubmit reports success. Custom event payloads
 contain action types, placement/case identifiers, and page paths, never form
 contents. Do Not Track and Global Privacy Control skip the analytics provider.
 The local `aiquor:analytics` event remains available for verification.
+
+### HealthTech Hub concept demo
+
+The three-page concept is available at `/health-tech-hub/`: the home page,
+searchable directory at `/health-tech-hub/explore/`, and reusable resource
+detail page at `/health-tech-hub/resource/?id=clinical-ai`. Resource titles link
+to their matching details; the directory filters and demo interest form are
+interactive. The assistant uses prepared sample responses, and the form does not
+send or store submissions. This is a frontend prototype with illustrative
+content, not a connected health service or a clinical guidance tool.
 
 ### Verification completed October 5, 2026
 

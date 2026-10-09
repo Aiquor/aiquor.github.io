@@ -85,6 +85,12 @@ Use solid black reading panels with softly rounded corners behind hero copy, sec
 
 ## Conversion and readability refinement — October 2026
 
+The workflow hero includes a React Three Fiber layer of thin terracotta orbital
+rings and warm signal particles behind the preserved SVG. Match the SVG's
+600 × 480 proportions. Pointer movement gently tilts the orbits; motion pauses
+when the hero is offscreen or the tab is hidden. Reduced-motion users see a
+static scene. The original workflow remains visible if WebGL is unavailable.
+
 Preserve the workflow hero, palette, and flowing background pattern. Lower the
 background opacity to 0.72 and its brightness to 0.78 so content leads. Use
 96px desktop / 64px mobile chapter spacing. The project accordion retains three

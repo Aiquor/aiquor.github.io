@@ -10,7 +10,7 @@ function walk(path) {
   });
 }
 const pages = walk(root).filter(file => file.endsWith('.html') && !file.includes('google6a0bdb688881b55e'));
-assert.equal(pages.length, 9, 'Build must include the homepage, four services, privacy, and all three HealthTech Hub demo pages.');
+assert.equal(pages.length, 10, 'Build must include the homepage, four services, privacy, three HealthTech Hub pages, and the support demo.');
 for (const file of pages) {
   const html = readFileSync(file, 'utf8');
   assert.equal((html.match(/<h1\b/g) || []).length, 1, `${file}: one page heading required`);
@@ -35,5 +35,5 @@ for (const file of pages) {
 const png = readFileSync(resolve(root, 'assets/social/aiquor-og.png'));
 assert.equal(png.readUInt32BE(16), 1200);
 assert.equal(png.readUInt32BE(20), 630);
-assert.equal((readFileSync(resolve(root, 'sitemap.xml'), 'utf8').match(/<loc>/g) || []).length, 9);
-console.log('PASS social-card dimensions and all nine sitemap entries');
+assert.equal((readFileSync(resolve(root, 'sitemap.xml'), 'utf8').match(/<loc>/g) || []).length, 10);
+console.log('PASS social-card dimensions and all ten sitemap entries');

@@ -64,6 +64,12 @@ The existing connected-workflow hero is preserved. FluidFieldBackground is an ar
 
 ## Service pages and site configuration
 
+The standalone 15-second support workflow demo is at `/demo/support/`. It uses
+fictional data and simulates inbox → AI draft → human approval → reply, with
+pause, replay, seeking, and chapter controls. Edit `js/support-demo.js` for the
+story and timing, and `styles/support-demo.css` for its presentation. The
+voiceover script and recording notes are in `docs/support-demo.md`.
+
 The homepage links to four dedicated service pages: AI agents, MCP integrations,
 cybersecurity, and internal tools. Edit their shared template and content in
 `scripts/generate-pages.mjs`; `npm run dev` and `npm run build` regenerate them.

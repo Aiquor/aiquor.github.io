@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     throw new Error('VITE_CONTACT_EMAIL must be a valid email address.');
   }
   const analyticsEnabled = /^G-[A-Z0-9]+$/.test(env.VITE_GA_MEASUREMENT_ID || '');
-      const paths = ['/', '/services/ai-agents/', '/services/mcp-integrations/', '/services/cybersecurity/', '/services/internal-tools/', '/privacy/', '/health-tech-hub/', '/health-tech-hub/explore/', '/health-tech-hub/resource/'];
+      const paths = ['/', '/services/ai-agents/', '/services/mcp-integrations/', '/services/cybersecurity/', '/services/internal-tools/', '/privacy/', '/health-tech-hub/', '/health-tech-hub/explore/', '/health-tech-hub/resource/', '/demo/support/'];
   return {
     plugins: [react(), tailwindcss(), {
       name: 'aiquor-public-metadata',

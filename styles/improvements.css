@@ -115,3 +115,5 @@
 @media (prefers-reduced-motion: reduce) {
   .site-fluid-background { opacity: .6; }
 }
+
+.demo-preview{position:relative;display:flex;text-decoration:none}.demo-preview-cta{position:absolute;left:18px;right:18px;bottom:16px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:6px;background:#CC8066;color:#191C21;font-size:12px;font-weight:600}.demo-preview:hover .demo-preview-cta{background:#dda28c}.demo-preview:focus-visible{outline:2px solid #CC8066;outline-offset:4px}

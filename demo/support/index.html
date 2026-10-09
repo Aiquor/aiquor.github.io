@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A support request, handled with care — Aiquor demo</title>
+  <meta name="description" content="Watch a 15-second sample workflow: a support request becomes an AI draft, a human approves it, and the customer gets a reply.">
+  <link rel="canonical" href="https://aiquor.github.io/demo/support/">
+  <meta property="og:title" content="From support request to approved reply — Aiquor">
+  <meta property="og:description" content="A 15-second illustrative demo. AI drafts. Your team decides.">
+  <meta property="og:image" content="https://aiquor.github.io/assets/social/aiquor-og.png">
+  <meta property="og:url" content="https://aiquor.github.io/demo/support/">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#191C21">
+  <link rel="icon" href="/assets/social/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/support-demo.css">
+  <script type="module" src="/js/support-demo.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to demo</a>
+  <header class="page-header"><a class="wordmark" href="/" aria-label="Aiquor home">aiquor<span>.</span></a><span class="sample-label">Illustrative demo · fictional data</span><a class="back" href="/#work">Back to Aiquor <span aria-hidden="true">↗</span></a></header>
+  <main id="main">
+    <div class="intro"><div><p class="eyebrow">ONE REQUEST. A CLEAR NEXT STEP.</p><h1>AI drafts.<br class="mobile-break"> Your team decides.</h1></div><p>A customer needs an update.<br>Follow the request from inbox to approved reply.</p></div>
+    <section class="player" aria-label="15-second support workflow demo">
+      <div class="player-top"><span><span class="status-dot"></span> Meadow Supply <span class="muted">/ Support workspace</span></span><span class="run-status" id="run-status">Ready to play</span></div>
+      <div class="workspace">
+        <nav class="chapters" aria-label="Demo chapters">
+          <p class="eyebrow">THE WORKFLOW</p>
+          <button data-chapter="0" aria-current="step"><span class="step-index">01</span><span><strong>Request arrives</strong><small>Customer inbox</small></span><img src="/assets/icons/phosphor/envelope-simple.svg" alt="" width="20" height="20"></button>
+          <button data-chapter="1"><span class="step-index">02</span><span><strong>AI drafts a reply</strong><small>Order data + context</small></span><img src="/assets/icons/phosphor/robot.svg" alt="" width="20" height="20"></button>
+          <button data-chapter="2"><span class="step-index">03</span><span><strong>A human approves</strong><small>Review before sending</small></span><img src="/assets/icons/phosphor/slack-logo.svg" alt="" width="20" height="20"></button>
+          <button data-chapter="3"><span class="step-index">04</span><span><strong>Customer gets a reply</strong><small>Approved message</small></span><img src="/assets/icons/phosphor/paper-plane-right.svg" alt="" width="20" height="20"></button>
+          <div class="sample-note"><span class="eyebrow">DEMO BOUNDARY</span><p>All names, orders, messages, and approvals are fictional. Playback simulates the workflow.</p></div>
+        </nav>
+        <div class="scene">
+          <div class="scene-heading"><span class="eyebrow" id="scene-label">01 / CUSTOMER INBOX</span><span class="ticket">TICKET #1042</span></div>
+          <article id="scene-content"></article>
+          <div class="caption" aria-live="polite" aria-atomic="true"><span class="caption-marker" aria-hidden="true"></span><p id="caption">A customer asks where their order is. Start the demo to follow the request.</p></div>
+        </div>
+      </div>
+      <div class="transport"><button class="play-button" id="play" aria-label="Play 15-second demo"><span id="play-label">Play demo</span></button><button class="replay-button" id="replay" aria-label="Restart demo">Restart</button><label class="sr-only" for="timeline">Demo position in seconds</label><input id="timeline" type="range" min="0" max="15" step="0.1" value="0" aria-valuetext="0 seconds of 15"><span class="time" id="time">00:00 / 00:15</span></div>
+    </section>
+    <div class="closing"><p><strong>Less sorting. More considered replies.</strong><span>One illustrative workflow, built around a team's tools and approval rules.</span></p><a class="cta" href="https://calendly.com/imeanhashir88/30min" target="_blank" rel="noopener noreferrer">Discuss your support workflow <img src="/assets/icons/phosphor/arrow-up-right.svg" alt="" width="18" height="18"></a></div>
+    <p class="disclosure">This is a scripted demonstration, not a live AI integration. No customer message is sent. Timing is for presentation and does not represent processing speed.</p>
+    <noscript><p class="noscript">Enable JavaScript for timed playback. The workflow: a customer asks about order MS-1042; AI uses a sample carrier update to draft a reply; a human reviews and approves it; the approved reply is shown in the customer inbox.</p></noscript>
+  </main>
+</body>
+</html>

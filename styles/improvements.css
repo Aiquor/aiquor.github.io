@@ -40,10 +40,13 @@
 .timeline-note h3 { font-size: 22px; line-height: 1.3; }
 .timeline-note p { margin: 0; }
 .faq-list { background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding-inline: 28px; }
+.faq-list details { transition: background-color 0.2s ease; }
 .faq-list details + details { border-top: 1px solid var(--border); }
-.faq-list summary { padding: 24px 4px; font-size: 17px; font-weight: 600; cursor: pointer; line-height: 1.6; }
+.faq-list summary { padding: 24px 4px; font-size: 17px; font-weight: 600; cursor: pointer; line-height: 1.6; list-style-position: outside; transition: color 0.2s ease; }
+.faq-list summary:hover { color: var(--primary-soft); }
 .faq-list summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 4px; }
-.faq-list details p { padding: 0 4px 26px; color: var(--text-secondary); font-size: 14px; line-height: 1.8; max-width: 80ch; }
+.faq-list details p { padding: 0 4px 26px; color: var(--text-secondary); font-size: 14px; line-height: 1.8; max-width: 80ch; animation: faqFadeIn 0.25s ease-out; }
+@keyframes faqFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .team-avatar { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--surface-border); object-fit: cover; }
 .person { grid-template-columns: 56px minmax(0, 1fr); }
 .person-profile { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 8px; width: fit-content; min-height: 44px; color: var(--primary-soft); font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }

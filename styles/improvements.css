@@ -117,3 +117,17 @@
 }
 
 .demo-preview{position:relative;display:flex;text-decoration:none}.demo-preview-cta{position:absolute;left:18px;right:18px;bottom:16px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:6px;background:#CC8066;color:#191C21;font-size:12px;font-weight:600}.demo-preview:hover .demo-preview-cta{background:#dda28c}.demo-preview:focus-visible{outline:2px solid #CC8066;outline-offset:4px}
+
+/* A scoped offer follows the support demonstration without changing the hero. */
+.pilot-offer { grid-column: 1 / -1; grid-row: 3; display: grid; grid-template-columns: 1fr 1fr auto; align-items: start; gap: 24px; border-top: 1px solid #CC806666; padding-top: 28px; margin-top: 28px; }
+.pilot-label { font: 600 10px/1.5 'JetBrains Mono', monospace; letter-spacing: .08em; color: #E2A58E; margin: 0 0 10px; }
+.pilot-summary h4 { font-size: 25px; line-height: 1.2; letter-spacing: -.03em; margin: 0 0 12px; color: #fff; }
+.pilot-summary > p:last-child, .pilot-scope p { font-size: 13px; line-height: 1.7; color: #D5D0CA; margin: 0; }
+.pilot-scope p + p { margin-top: 10px; }
+.pilot-price { font-size: 27px; font-weight: 600; color: #fff; margin: 0 0 14px; white-space: nowrap; }
+.pilot-price span { font-size: 13px; font-weight: 500; color: #D5D0CA; }
+.pilot-action .button { width: 100%; justify-content: space-between; padding: 14px 17px; font-size: 12px; }
+.pilot-payment { font-size: 11px; color: #D5D0CA; margin: 10px 0 0; line-height: 1.6; }
+.pilot-terms { grid-column: 1 / -1; font-size: 11px; line-height: 1.7; color: #BBB5AF; margin: 0; }
+@media(max-width:1100px) { .pilot-offer { grid-template-columns: 1fr 1fr; } .pilot-scope { grid-column: 1; } .pilot-action { grid-column: 2; grid-row: 1 / 3; } }
+@media(max-width:760px) { .pilot-offer { grid-row: 4; grid-template-columns: minmax(0,1fr); gap: 20px; margin-top: 24px; padding-top: 24px; } .pilot-action, .pilot-scope { grid-column: 1; grid-row: auto; } .pilot-price { white-space: normal; } }
